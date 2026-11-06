@@ -1,85 +1,117 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f2a36">
-<title>市場觀察</title>
-<style>
-:root{--bg:#eef1f4;--card:#fff;--ink:#17212b;--mute:#667584;--line:#dbe1e7;--up:#c8352b;--down:#1f8a5b;--ok:#667584;--near:#b7791f;--break:#c8352b;--trigger:#2b6cb0;--spark:#2b3a4a;--sup:#b7791f}
-@media (prefers-color-scheme:dark){:root{--bg:#10161d;--card:#18212b;--ink:#e6ebf0;--mute:#93a1af;--line:#27333f;--up:#ef6a5f;--down:#4cc38a;--near:#e0a84a;--break:#ef6a5f;--trigger:#6aa9e8;--spark:#b8c4d0;--sup:#e0a84a}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-main{max-width:640px;margin:0 auto;padding:16px}
-h1{font-size:1.35rem;margin:8px 0 2px}
-.sub{color:var(--mute);font-size:.88rem;margin:0 0 14px}
-.stale{background:#fff3cd;color:#664d03;padding:8px 12px;border-radius:8px;font-size:.9rem;margin-bottom:12px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
-.wide{grid-column:1/-1}
-.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.pr{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
-.name{font-weight:650;font-size:.95rem}
-.price{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
-.chg{font-size:.85rem;font-variant-numeric:tabular-nums}
-.meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--mute);margin-top:2px}
-.up{color:var(--up)}.dn{color:var(--down)}
-.chip{display:inline-block;font-size:.8rem;padding:1px 9px;border-radius:99px;border:1px solid currentColor;margin:6px 0 2px}
-.ok{color:var(--ok)}.near{color:var(--near)}.break{color:var(--break)}.trigger{color:var(--trigger)}
-.text{margin:2px 0 8px;font-size:.84rem;line-height:1.45}
-.facts{font-size:.8rem;color:var(--mute)}
-.facts div{display:flex;justify-content:space-between}
-.facts b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
-svg{width:100%;height:56px;margin-top:8px}
-.bars{display:flex;align-items:flex-end;gap:3px;height:56px;margin-top:6px}
-.bars i{flex:1;border-radius:2px 2px 0 0;min-height:2px}
-details{font-size:.88rem;color:var(--mute);margin:14px 0}
-summary{cursor:pointer;color:var(--ink)}
-footer{color:var(--mute);font-size:.8rem;padding:6px 0 20px}
-</style>
-</head>
-<body>
-<main>
-<h1>市場觀察</h1>
-<p class="sub" id="sub">載入中…</p>
-<div id="warn"></div>
-<div id="list" class="grid"></div>
-<details><summary>規則說明</summary>
-<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,達 15% 或 25% 時標示「已達第一批/第二批條件」,門檻可在 fetch_data.py 調整。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。</p></details>
-<footer>資料來自證交所與公開行情來源,可能有延遲或誤差,以官方公告為準。本頁僅為資訊整理,不構成任何投資建議;每個人的資金與風險承受度不同,請自行判斷。</footer>
-</main>
-<script>
-const $=s=>document.querySelector(s);
-const LV={ok:"一般",near:"接近支撐",break:"低於支撐",trigger:"達進場條件"};
-const f=(n,d=2)=>n==null?"—":Number(n).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
-const sg=n=>(n>0?"+":"")+f(n)+"%";
-function spark(a,sup){
-  const lo=Math.min(...a,sup),hi=Math.max(...a),r=hi-lo||1,w=300,h=56;
-  const y=v=>h-4-((v-lo)/r)*(h-8),x=i=>i*w/(a.length-1);
-  const p=a.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="近 60 日走勢與支撐線"><line x1="0" x2="${w}" y1="${y(sup)}" y2="${y(sup)}" stroke="var(--sup)" stroke-dasharray="4 3" stroke-width="1.2"/><polyline points="${p}" fill="none" stroke="var(--spark)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
-}
-function card(i){
-  if(i.error)return `<div class="card"><div class="name">${i.name}</div><p class="text">${i.error},稍後會再試。</p></div>`;
-  const c=i.chg>=0?"up":"dn";
-  return `<div class="card"><div class="name">${i.name}</div>
-  <div class="pr"><span class="price">${f(i.close)}</span><span class="chg ${c}">${sg(i.chg)}</span></div>
-  <span class="chip ${i.level}">${LV[i.level]}</span><p class="text">${i.text}</p>
-  <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?"—":f(i.vol_ratio)}</b></div><div>距季線<b>${sg(i.vs_ma60)}</b></div></div>
-  ${spark(i.spark,i.support)}<div class="meta"><span>支撐 ${f(i.support)}</span><span>${i.date.slice(5)}</span></div></div>`;
-}
-function foreign(a){
-  if(!a||!a.length)return "";
-  const m=Math.max(...a.map(x=>Math.abs(x.net_yi)))||1,l=a[a.length-1];
-  const bars=a.map(x=>`<i title="${x.date}: ${x.net_yi} 億" style="height:${Math.max(4,Math.abs(x.net_yi)/m*100)}%;background:var(--${x.net_yi>=0?"up":"down"})"></i>`).join("");
-  return `<div class="card wide"><div class="top"><span class="name">外資買賣超(台股)</span><span class="chg ${l.net_yi>=0?"up":"dn"}">${l.net_yi>0?"+":""}${f(l.net_yi,1)} 億</span></div><div class="bars">${bars}</div><div class="meta" style="margin-top:4px"><span>近 ${a.length} 筆</span><span>${l.date}</span></div></div>`;
-}
-fetch("data.json?"+Date.now()).then(r=>r.json()).then(d=>{
-  $("#sub").textContent="最後更新 "+d.updated+"(台灣時間)";
-  const age=(Date.now()-new Date(d.updated.replace(" ","T")+"+08:00"))/864e5;
-  if(age>3)$("#warn").innerHTML='<div class="stale">資料已超過 3 天沒更新,數字可能過時。</div>';
-  $("#list").innerHTML=d.items.map(card).join("")+foreign(d.foreign);
-}).catch(()=>{$("#sub").textContent="資料載入失敗,請稍後再試。"});
-</script>
-</body>
-</html>
+"""每天抓行情 → 算支撐/量比/回落幅度 → 套規則輸出中性結論 → 寫入 docs/data.json
+只做資訊整理,不是投資建議。"""
+import io, json, os, datetime as dt
+import pandas as pd, requests
+
+OUT = os.path.join(os.path.dirname(__file__), "docs", "data.json")
+# 標的設定:代碼、顯示名稱、是否有成交量
+SYMBOLS = [
+    ("^TWII", "台灣加權指數", True),
+    ("^GSPC", "標普 500", True),
+    ("^IXIC", "那斯達克指數", True),
+    ("^DJI", "道瓊工業指數", True),
+    ("^SOX", "費城半導體", True),
+    ("GC=F", "黃金期貨", True),
+    ("CL=F", "WTI 原油期貨", True),
+    ("TWD=X", "美元兌台幣", False),
+]
+STOOQ = {"^GSPC": "^spx", "^IXIC": "^ndq", "^DJI": "^dji", "^SOX": "^sox", "GC=F": "gc.f", "CL=F": "cl.f", "TWD=X": "usdtwd"}
+TRIGGERS = [(25, "已達第二批條件"), (15, "已達第一批條件")]  # 自行調整:自一年高點回落 %
+SUPPORT_DAYS, NEAR, FAR = 60, 2.0, 5.0
+
+
+def from_yahoo(sym):
+    import yfinance as yf
+    df = yf.Ticker(sym).history(period="1y", auto_adjust=False)
+    return df[["Close", "Low", "Volume"]].dropna(subset=["Close"])
+
+
+def from_stooq(sym):
+    r = requests.get(f"https://stooq.com/q/d/l/?s={STOOQ[sym]}&i=d", timeout=20)
+    df = pd.read_csv(io.StringIO(r.text), parse_dates=["Date"], index_col="Date").tail(260)
+    if "Volume" not in df:
+        df["Volume"] = 0
+    return df[["Close", "Low", "Volume"]].dropna(subset=["Close"])
+
+
+def analyse(sym, name, has_vol):
+    df = None
+    for src in (from_yahoo, from_stooq):
+        try:
+            if src is from_stooq and sym not in STOOQ:
+                continue
+            df = src(sym)
+            if len(df) > 70:
+                break
+        except Exception as e:
+            print(f"[{sym}] {src.__name__} 失敗: {e}")
+            df = None
+    if df is None or len(df) < 70:
+        return {"sym": sym, "name": name, "error": "今天抓不到資料"}
+    last, prev = df.iloc[-1], df.iloc[-2]
+    hist = df.iloc[-1 - SUPPORT_DAYS:-1]
+    support = float(hist["Low"].min())
+    ma60 = float(df["Close"].tail(60).mean())
+    close = float(last["Close"])
+    dist = (close / support - 1) * 100
+    dd = (close / float(df["Close"].max()) - 1) * -100
+    vr = None
+    if has_vol and df["Volume"].tail(21).iloc[:-1].mean() > 0:
+        vr = float(last["Volume"] / df["Volume"].tail(21).iloc[:-1].mean())
+    # 規則式結論(中性用語)
+    if close < support:
+        text, level = "收盤低於近 60 日低點,等待後續確認", "break"
+    elif dist <= NEAR:
+        extra = "量縮" if vr and vr < 0.8 else "放量" if vr and vr > 1.5 else ""
+        text, level = "接近近 60 日低點" + (f",{extra}" if extra else ""), "near"
+    elif dist > FAR:
+        text, level = "距支撐尚遠", "ok"
+    else:
+        text, level = "與支撐有一段距離", "ok"
+    for pct, label in TRIGGERS:
+        if dd >= pct:
+            text += f";{label}(回落 {dd:.1f}%)"
+            level = "trigger" if level != "break" else level
+            break
+    return {
+        "sym": sym, "name": name, "date": df.index[-1].strftime("%Y-%m-%d"),
+        "close": round(close, 2), "chg": round((close / float(prev["Close"]) - 1) * 100, 2),
+        "support": round(support, 2), "dist": round(dist, 1), "ma60": round(ma60, 2),
+        "vs_ma60": round((close / ma60 - 1) * 100, 1), "vol_ratio": None if vr is None else round(vr, 2),
+        "drawdown": round(dd, 1), "text": text, "level": level,
+        "spark": [round(float(x), 2) for x in df["Close"].tail(60)],
+    }
+
+
+def foreign_flow(prev_list):
+    """證交所三大法人買賣金額統計(外資及陸資,不含外資自營商),單位:億元。失敗就沿用舊資料。"""
+    try:
+        j = requests.get("https://www.twse.com.tw/rwd/zh/fund/BFI82U?type=day&response=json", timeout=20).json()
+        row = next(r for r in j["data"] if r[0].startswith("外資及陸資(不含外資自營商)"))
+        net = round(int(row[3].replace(",", "")) / 1e8, 1)
+        d = j.get("date", "")
+        d = f"{d[:4]}-{d[4:6]}-{d[6:]}" if len(d) == 8 else d
+        if d and all(x["date"] != d for x in prev_list):
+            prev_list.append({"date": d, "net_yi": net})
+    except Exception as e:
+        print("外資資料失敗:", e)
+    return prev_list[-20:]
+
+
+def main():
+    prev = {}
+    if os.path.exists(OUT):
+        prev = json.load(open(OUT, encoding="utf-8"))
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    data = {
+        "updated": now.strftime("%Y-%m-%d %H:%M"),
+        "items": [analyse(*s) for s in SYMBOLS],
+        "foreign": foreign_flow(prev.get("foreign", [])),
+    }
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    json.dump(data, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
+    print("完成", data["updated"])
+
+
+if __name__ == "__main__":
+    main()
