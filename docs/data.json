@@ -1,27 +1,28 @@
 {
-  "updated": "2026-11-07 09:28",
+  "updated": "2026-11-07 09:40",
   "update_status": "success",
-  "successful_items": 8,
-  "total_items": 8,
+  "successful_items": 10,
+  "total_items": 10,
   "items": [
     {
       "sym": "^TWII",
       "name": "台灣加權指數",
-      "date": "2026-11-05",
-      "close": 41574.72,
-      "chg": -3.2,
-      "support": 41855.82,
-      "dist": -0.7,
-      "ma60": 46490.63,
-      "vs_ma60": -10.6,
-      "vol_ratio": null,
-      "volume_status": "不適用",
-      "drawdown": 16.6,
+      "date": "2026-11-06",
+      "close": 39701.64,
+      "chg": -4.51,
+      "support": 41513.57,
+      "dist": -4.4,
+      "ma60": 46415.23,
+      "vs_ma60": -14.5,
+      "vol_ratio": 1.36,
+      "volume": 13210.7,
+      "volume_unit": "億元",
+      "volume_status": "有效",
+      "drawdown": 20.3,
       "drawdown_status": "回落超過 15%（回落觀察）",
       "text": "收盤低於近 60 日支撐，留意後續是否站回",
       "level": "break",
       "spark": [
-        44225.91,
         44928.76,
         45120.72,
         45518.07,
@@ -80,9 +81,52 @@
         44920.14,
         43307.54,
         42948.91,
-        41574.72
+        41574.72,
+        39701.64
       ],
       "stale": false
+    },
+    {
+      "sym": "TX",
+      "name": "台指期（近月）",
+      "date": "2026-11-06",
+      "close": 39786.0,
+      "chg": -5.0,
+      "oi": 125793.0,
+      "volume": 143277.0,
+      "volume_unit": "口",
+      "support": null,
+      "dist": null,
+      "vol_ratio": null,
+      "volume_status": "累積中",
+      "level": "ok",
+      "stale": false,
+      "spark": [
+        39786.0
+      ],
+      "history_days": 1,
+      "text": "歷史資料累積中（1/60 天），滿 5 天後開始顯示支撐"
+    },
+    {
+      "sym": "TXALL",
+      "name": "台指期（全）",
+      "date": "2026-11-06",
+      "close": 39786.0,
+      "chg": -5.0,
+      "oi": 125793.0,
+      "volume": 232573.0,
+      "volume_unit": "口",
+      "support": null,
+      "dist": null,
+      "vol_ratio": null,
+      "volume_status": "累積中",
+      "level": "ok",
+      "stale": false,
+      "spark": [
+        39786.0
+      ],
+      "history_days": 1,
+      "text": "歷史資料累積中（1/60 天），滿 5 天後開始顯示支撐"
     },
     {
       "sym": "^GSPC",
@@ -95,6 +139,8 @@
       "ma60": 7682.59,
       "vs_ma60": -4.0,
       "vol_ratio": null,
+      "volume": null,
+      "volume_unit": "",
       "volume_status": "不適用",
       "drawdown": 5.7,
       "drawdown_status": "未達 15% 回落門檻",
@@ -175,6 +221,8 @@
       "ma60": 26432.27,
       "vs_ma60": -7.0,
       "vol_ratio": null,
+      "volume": null,
+      "volume_unit": "",
       "volume_status": "不適用",
       "drawdown": 10.9,
       "drawdown_status": "未達 15% 回落門檻",
@@ -255,6 +303,8 @@
       "ma60": 52287.74,
       "vs_ma60": -1.9,
       "vol_ratio": null,
+      "volume": null,
+      "volume_unit": "",
       "volume_status": "不適用",
       "drawdown": 5.6,
       "drawdown_status": "未達 15% 回落門檻",
@@ -335,6 +385,8 @@
       "ma60": 11725.78,
       "vs_ma60": -19.9,
       "vol_ratio": null,
+      "volume": null,
+      "volume_unit": "",
       "volume_status": "不適用",
       "drawdown": 35.8,
       "drawdown_status": "回落超過 25%（高回落觀察）",
@@ -415,6 +467,8 @@
       "ma60": 4289.4,
       "vs_ma60": -4.9,
       "vol_ratio": 1.02,
+      "volume": 166431.0,
+      "volume_unit": "口",
       "volume_status": "有效",
       "drawdown": 23.3,
       "drawdown_status": "回落超過 15%（回落觀察）",
@@ -495,6 +549,8 @@
       "ma60": 93.64,
       "vs_ma60": -3.5,
       "vol_ratio": 0.88,
+      "volume": 253859.0,
+      "volume_unit": "口",
       "volume_status": "有效",
       "drawdown": 20.0,
       "drawdown_status": "回落超過 15%（回落觀察）",
@@ -575,6 +631,8 @@
       "ma60": 31.99,
       "vs_ma60": 3.5,
       "vol_ratio": null,
+      "volume": null,
+      "volume_unit": "",
       "volume_status": "不適用",
       "drawdown": 0.0,
       "drawdown_status": "未達 15% 回落門檻",
@@ -652,9 +710,35 @@
     }
   ],
   "foreign_meta": {
-    "status": "success",
-    "message": "最新抓取成功",
+    "status": "stale",
+    "message": "本次抓取失敗，沿用舊資料：HTTPSConnectionPool(host='www.twse.com.tw', port=443): Read timed out. (read timeout=20)",
     "source_date": "2026-11-06",
-    "checked_at": "2026-11-07 09:28"
+    "checked_at": "2026-11-07 09:40"
+  },
+  "fut_hist": {
+    "TX": [
+      {
+        "date": "2026-11-06",
+        "m": "202611",
+        "close": 39786.0,
+        "oi": 125793.0,
+        "chg_pct": -5.0,
+        "high": 40690.0,
+        "low": 37694.0,
+        "vol": 143277.0
+      }
+    ],
+    "TXALL": [
+      {
+        "date": "2026-11-06",
+        "m": "202611",
+        "close": 39786.0,
+        "oi": 125793.0,
+        "chg_pct": -5.0,
+        "high": 42298.0,
+        "low": 37694.0,
+        "vol": 232573.0
+      }
+    ]
   }
 }
