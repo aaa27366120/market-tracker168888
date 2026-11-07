@@ -1,8 +1,9 @@
 name: update-data
 on:
   schedule:
-    - cron: "30 0 * * 2-6"   # 台灣時間週二到週六 08:30(美股收盤後);GitHub 可能延遲數十分鐘
-  workflow_dispatch: {}       # 允許手動按鈕執行
+    - cron: "30 0 * * 2-6"   # 台灣時間週二到週六 08:30；GitHub 可能延遲數十分鐘
+    - cron: "0 8 * * 1-5"    # 台灣時間週一到週五 16:00：台股與台指期日盤收盤後（期交所只提供最新一日，需每天存下來）
+  workflow_dispatch: {}
 permissions:
   contents: write
 jobs:
@@ -13,8 +14,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install yfinance pandas requests
-      - run: python fetch_data.py
+      - name: 安裝依賴
+        run: pip install yfinance pandas requests
+      - name: 更新市場資料
+        run: python fetch_data.py
+      - name: 驗證資料檔
+        run: |
+          python - <<'PY'
+          import json
+          with open("docs/data.json", encoding="utf-8") as f:
+              data = json.load(f)
+          assert data.get("update_status") != "failed", "所有行情標的更新失敗，停止提交"
+          assert isinstance(data.get("items"), list) and data["items"], "行情清單為空"
+          assert "foreign_meta" in data, "缺少外資資料狀態"
+          print(f"資料驗證完成：{data.get('successful_items')}/{data.get('total_items')} 個標的成功")
+          PY
       - name: 提交更新
         run: |
           git config user.name "market-bot"
