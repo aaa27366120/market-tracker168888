@@ -97,7 +97,7 @@ function spark(a,sup){
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="近 60 日走勢與支撐線">${has?`<line x1="0" x2="${w}" y1="${y(sup)}" y2="${y(sup)}" stroke="var(--sup)" stroke-dasharray="4 3" stroke-width="1.2"/>`:""}<polyline points="${p}" fill="none" stroke="var(--spark)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
 }
 function marketAnalysis(m){
-  if(!m)return "";
+  if(!m)return "<div class=\"card risk-card\"><span class=\"name\">市場分析資料準備中</span><p class=\"text\">新的技術指標將在下一次成功的行情更新後產生；目前不以舊資料推估日、週、月趨勢。</p></div>";
   const cls=m.risk_score==null?"":m.risk_score>=60?"risk-alert":m.risk_score>=30?"risk-watch":"risk-normal";
   const score=m.risk_score==null?"—":m.risk_score+"/100";
   const coverage=(m.coverage??0)+"/"+(m.coverage_total??4);
