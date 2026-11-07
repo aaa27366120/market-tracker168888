@@ -1,11 +1,16 @@
 name: update-data
 on:
   schedule:
-    - cron: "30 0 * * 2-6"   # 台灣時間週二到週六 08:30；GitHub 可能延遲數十分鐘
-    - cron: "0 8 * * 1-5"    # 台灣時間週一到週五 16:00：台股與台指期日盤收盤後（期交所只提供最新一日，需每天存下來）
+    # 以下為 UTC；台灣 = UTC+8。GitHub 排程可能延遲數十分鐘。
+    - cron: "30 1-5 * * 1-5"          # 台股盤中：台灣週一到週五 09:30、10:30、11:30、12:30、13:30
+    - cron: "0 8,10 * * 1-5"          # 台股收盤後：台灣 16:00、18:00（證交所、期交所資料；當天已有就跳過第二次）
+    - cron: "0 14,16,18,20,22 * * 1-5" # 美股交易時段每 2 小時；22:00 UTC（台灣隔天 06:00）為收盤後最終更新，夏令冬令都涵蓋
   workflow_dispatch: {}
 permissions:
   contents: write
+concurrency:
+  group: update-data
+  cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
