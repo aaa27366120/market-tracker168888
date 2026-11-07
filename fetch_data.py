@@ -292,6 +292,7 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
             kind: str = "us", is_open: bool = False) -> dict[str, Any]:
     errors = []
     df = None
+    provider = None
     for source in (from_yahoo, from_stooq):
         if source is from_stooq and sym not in STOOQ:
             continue
@@ -299,6 +300,7 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
             candidate = retry(source, sym)
             if candidate is not None and len(candidate) >= SUPPORT_DAYS + 2:
                 df = candidate
+                provider = "Yahoo Finance" if source is from_yahoo else "Stooq"
                 break
             errors.append(f"{source.__name__}: 歷史資料不足")
         except Exception as exc:  # keep trying the fallback source
@@ -357,7 +359,7 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
     else:
         drawdown_status = "未達 15% 回落門檻"
 
-    return {
+    result = {
         "sym": sym, "name": name,
         "date": pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d"),
         "close": round(close, 2),
@@ -376,6 +378,138 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
         "spark": [round(float(x), 2) for x in df["Close"].tail(60)],
         "stale": False,
     }
+
+
+def _trend_label(close: float, fast: float | None, slow: float | None) -> str:
+    if fast is None or slow is None:
+        return "資料不足"
+    if close > fast > slow:
+        return "多頭"
+    if close < fast < slow:
+        return "空頭"
+    if close > fast and fast <= slow:
+        return "轉強觀察"
+    if close < fast and fast >= slow:
+        return "轉弱觀察"
+    return "盤整"
+
+
+def _period_snapshot(series: pd.Series, fast_n: int, slow_n: int) -> dict[str, Any]:
+    clean = pd.to_numeric(series, errors="coerce").dropna()
+    if clean.empty:
+        return {"trend": "資料不足", "close": None, "fast_ma": None, "slow_ma": None, "bars": 0}
+    close = float(clean.iloc[-1])
+    fast = float(clean.tail(fast_n).mean()) if len(clean) >= fast_n else None
+    slow = float(clean.tail(slow_n).mean()) if len(clean) >= slow_n else None
+    return {
+        "trend": _trend_label(close, fast, slow),
+        "close": round(close, 2),
+        "fast_ma": round(fast, 2) if fast is not None else None,
+        "slow_ma": round(slow, 2) if slow is not None else None,
+        "bars": int(len(clean)),
+    }
+
+
+def technical_analysis(df: pd.DataFrame) -> dict[str, Any]:
+    """以同一份日線歷史推導日、週、月趨勢及技術指標，不額外呼叫行情來源。"""
+    close = pd.to_numeric(df["Close"], errors="coerce").dropna().sort_index()
+    if len(close) < 35:
+        return {"status": "insufficient", "message": "有效日線少於 35 筆，技術指標資料不足"}
+    weekly = close.resample("W-FRI").last().dropna()
+    monthly = close.resample("M").last().dropna()
+
+    delta = close.diff()
+    gains, losses = delta.clip(lower=0), -delta.clip(upper=0)
+    avg_gain = gains.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    avg_loss = losses.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    rs = avg_gain / avg_loss.replace(0, float("nan"))
+    rsi = 100 - (100 / (1 + rs))
+    if pd.notna(rsi.iloc[-1]):
+        rsi_value = round(float(rsi.iloc[-1]), 1)
+    elif pd.notna(avg_gain.iloc[-1]) and float(avg_loss.iloc[-1]) == 0:
+        rsi_value = 100.0
+    else:
+        rsi_value = None
+
+    ema12, ema26 = close.ewm(span=12, adjust=False).mean(), close.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    histogram = macd_line - signal_line
+    ma20 = float(close.tail(20).mean()) if len(close) >= 20 else None
+    ma60 = float(close.tail(60).mean()) if len(close) >= 60 else None
+    ma120 = float(close.tail(120).mean()) if len(close) >= 120 else None
+    momentum20 = (float(close.iloc[-1]) / float(close.iloc[-21]) - 1) * 100 if len(close) >= 21 else None
+    daily = _period_snapshot(close, 20, 60)
+    daily["trend"] = _trend_label(float(close.iloc[-1]), ma20, ma60)
+    return {
+        "status": "success", "daily": daily,
+        "weekly": _period_snapshot(weekly, 12, 26),
+        "monthly": _period_snapshot(monthly, 3, 6),
+        "rsi14": rsi_value,
+        "macd": {
+            "line": round(float(macd_line.iloc[-1]), 3),
+            "signal": round(float(signal_line.iloc[-1]), 3),
+            "histogram": round(float(histogram.iloc[-1]), 3),
+            "direction": "偏多" if histogram.iloc[-1] > 0 else "偏空" if histogram.iloc[-1] < 0 else "中性",
+        },
+        "ma20": round(ma20, 2) if ma20 is not None else None,
+        "ma60": round(ma60, 2) if ma60 is not None else None,
+        "ma120": round(ma120, 2) if ma120 is not None else None,
+        "momentum20": round(momentum20, 2) if momentum20 is not None else None,
+        "bars": int(len(close)),
+    }
+
+
+def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """四個主要股價指數等權計分；缺漏資料不當成零分。"""
+    core_symbols = {"^TWII", "^GSPC", "^IXIC", "^SOX"}
+    core = [x for x in items if x.get("sym") in core_symbols and not x.get("stale")
+            and x.get("technical", {}).get("status") == "success"]
+    scored = []
+    for item in core:
+        t = item["technical"]
+        score = 0
+        score += 25 if t.get("ma60") is not None and item.get("close", 0) < t["ma60"] else 0
+        score += 20 if t.get("ma20") is not None and t.get("ma60") is not None and t["ma20"] < t["ma60"] else 0
+        score += 20 if t.get("rsi14") is not None and t["rsi14"] < 40 else 0
+        score += 20 if t.get("macd", {}).get("histogram") is not None and t["macd"]["histogram"] < 0 else 0
+        score += 15 if t.get("momentum20") is not None and t["momentum20"] < 0 else 0
+        scored.append({"sym": item["sym"], "name": item["name"], "score": score})
+    risk_score = round(sum(x["score"] for x in scored) / len(scored)) if len(scored) >= 2 else None
+    if risk_score is None:
+        level, summary = "資料不足", "主要股價指數有效資料不足，暫不計算市場風險分數。"
+    elif risk_score >= 60:
+        level, summary = "警戒", "主要股價指數的技術面風險訊號偏多，宜提高風險控管。"
+    elif risk_score >= 30:
+        level, summary = "注意", "市場出現部分偏弱訊號，宜留意趨勢是否持續惡化。"
+    else:
+        level, summary = "一般", "目前主要股價指數的技術面風險訊號相對有限。"
+    assets = []
+    for item in items:
+        t = item.get("technical")
+        if not t or t.get("status") != "success":
+            continue
+        assets.append({
+            "sym": item.get("sym"), "name": item.get("name"), "date": item.get("date"),
+            "close": item.get("close"), "chg": item.get("chg"),
+            "trend": t.get("daily", {}).get("trend", "資料不足"),
+            "weekly": t.get("weekly", {}).get("trend", "資料不足"),
+            "monthly": t.get("monthly", {}).get("trend", "資料不足"),
+            "rsi14": t.get("rsi14"), "macd_direction": t.get("macd", {}).get("direction"),
+            "momentum20": t.get("momentum20"), "stale": bool(item.get("stale")),
+            "source": item.get("source", "公開日線行情"),
+        })
+    dates = [x["date"] for x in assets if x.get("date")]
+    return {
+        "risk_score": risk_score, "risk_level": level, "summary": summary,
+        "coverage": len(scored), "coverage_total": len(core_symbols),
+        "scored_indices": scored, "assets": assets,
+        "updated": max(dates) if dates else None,
+        "method": "四個主要指數等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。",
+        "source": provider or "公開日線行情",
+    }
+    result["technical"] = technical_analysis(df)
+    return result
 
 
 def foreign_flow(previous: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -481,7 +615,9 @@ def main(now_utc: dt.datetime | None = None) -> None:
             it.update(session_fields(it.get("sym", ""), it.get("date"), now_utc))
         it["links"] = LINKS.get(it.get("sym"))
 
+    market_analysis = build_market_analysis(items)
     data = {
+        "market_analysis": market_analysis,
         "updated": now.strftime("%Y-%m-%d %H:%M"),
         "update_status": "success" if success_count == total else "partial" if success_count else "failed",
         "successful_items": success_count,
