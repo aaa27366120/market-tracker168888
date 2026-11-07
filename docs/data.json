@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-07 14:33",
+  "updated": "2026-11-07 14:50",
   "update_status": "success",
   "successful_items": 10,
   "total_items": 10,
@@ -89,7 +89,7 @@
       "session": "已收盤",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/%5ETWII",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255ETWII",
         "tv": "https://www.tradingview.com/chart/?symbol=TWSE%3ATAIEX"
       }
     },
@@ -232,7 +232,7 @@
       "session": "已收盤",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/%5EGSPC",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255EGSPC",
         "tv": "https://www.tradingview.com/chart/?symbol=SP%3ASPX"
       }
     },
@@ -321,7 +321,7 @@
       "session": "已收盤",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/%5EIXIC",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255EIXIC",
         "tv": "https://www.tradingview.com/chart/?symbol=NASDAQ%3AIXIC"
       }
     },
@@ -410,7 +410,7 @@
       "session": "已收盤",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/%5EDJI",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255EDJI",
         "tv": "https://www.tradingview.com/chart/?symbol=DJ%3ADJI"
       }
     },
@@ -499,7 +499,7 @@
       "session": "已收盤",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/%5ESOX",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255ESOX",
         "tv": "https://www.tradingview.com/chart/?symbol=NASDAQ%3ASOX"
       }
     },
@@ -588,7 +588,7 @@
       "session": "休市",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/GC=F",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2FGC=F",
         "tv": "https://www.tradingview.com/chart/?symbol=COMEX%3AGC1%21"
       }
     },
@@ -677,7 +677,7 @@
       "session": "休市",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/CL=F",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2FCL=F",
         "tv": "https://www.tradingview.com/chart/?symbol=NYMEX%3ACL1%21"
       }
     },
@@ -766,7 +766,7 @@
       "session": "休市",
       "session_class": "closed",
       "links": {
-        "yahoo": "https://finance.yahoo.com/quote/TWD=X",
+        "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2FUSDTWD=X",
         "tv": "https://www.tradingview.com/chart/?symbol=FX_IDC%3AUSDTWD"
       }
     }
@@ -781,7 +781,7 @@
     "status": "success",
     "message": "最新抓取成功",
     "source_date": "2026-11-06",
-    "checked_at": "2026-11-07 14:33"
+    "checked_at": "2026-11-07 14:50"
   },
   "turnover": {
     "date": "2026-11-06",
