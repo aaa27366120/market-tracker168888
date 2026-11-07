@@ -17,6 +17,19 @@ h1{font-size:1.35rem;margin:8px 0 2px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
 .wide{grid-column:1/-1}
+.section-title{font-size:1rem;font-weight:700;margin:18px 0 8px}
+.risk-card{grid-column:1/-1}
+.risk-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.risk-score{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums}
+.risk-normal{color:var(--down)}.risk-watch{color:var(--near)}.risk-alert{color:var(--break)}
+.analysis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.analysis-item{border:1px solid var(--line);border-radius:9px;padding:9px;min-width:0}
+.analysis-item .name{display:block;margin-bottom:4px}
+.analysis-item .facts{font-size:.76rem}
+.credit-link{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--trigger);text-decoration:none;font-weight:700}
+.credit-link small{display:block;color:var(--mute);font-weight:400}
+.analysis-note{font-size:.76rem;color:var(--mute);margin-top:8px}
+@media(max-width:390px){.analysis-grid{grid-template-columns:1fr}}
 .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .pr{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .name{font-weight:650;font-size:.95rem}
@@ -47,6 +60,20 @@ footer{color:var(--mute);font-size:.8rem;padding:6px 0 20px}
 <h1>市場觀察</h1>
 <p class="sub" id="sub">載入中…</p>
 <div id="warn"></div>
+<section aria-labelledby="credit-title">
+  <h2 class="section-title" id="credit-title">信用風險監控</h2>
+  <div class="card risk-card">
+    <a class="credit-link" href="https://www.twse.com.tw/dashboard/zh/credit/default.html" target="_blank" rel="noopener noreferrer">
+      <span>台股信用風險監控<small>證交所臺股儀表板・投資人違約概況</small></span>
+      <span aria-hidden="true">↗</span>
+    </a>
+    <p class="analysis-note">開啟證交所官方頁面查看最近申報日違約資訊；本站不重複抓取或呈現該頁數字。</p>
+  </div>
+</section>
+<section aria-labelledby="analysis-title">
+  <h2 class="section-title" id="analysis-title">市場分析・第三階段</h2>
+  <div id="market-analysis" class="grid"></div>
+</section>
 <div id="list" class="grid"></div>
 <details><summary>規則說明</summary>
 <p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所成交金額（億元），期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝盤後加一般盤合併（高低點取極值、成交量相加，收盤取一般盤收盤），早上若夜盤已結束而日盤未開，會顯示盤後最新價。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每小時、美股交易時段約每 2 小時，另有收盤後的最終更新。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p></details>
@@ -68,6 +95,26 @@ function spark(a,sup){
   const y=v=>h-4-((v-lo)/r)*(h-8),x=i=>i*w/(a.length-1);
   const p=a.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="近 60 日走勢與支撐線">${has?`<line x1="0" x2="${w}" y1="${y(sup)}" y2="${y(sup)}" stroke="var(--sup)" stroke-dasharray="4 3" stroke-width="1.2"/>`:""}<polyline points="${p}" fill="none" stroke="var(--spark)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function marketAnalysis(m){
+  if(!m)return "";
+  const cls=m.risk_score==null?"":m.risk_score>=60?"risk-alert":m.risk_score>=30?"risk-watch":"risk-normal";
+  const score=m.risk_score==null?"—":m.risk_score+"/100";
+  const coverage=(m.coverage??0)+"/"+(m.coverage_total??4);
+  const tiles=(m.assets||[]).map(a=>{
+    const trend=a.stale?"舊資料":a.trend||"資料不足";
+    return "<div class=\"analysis-item\"><span class=\"name\">"+(a.name||a.sym)+"</span><div class=\"facts\">"+
+      row("日線",trend)+row("週線",a.weekly||"資料不足")+row("月線",a.monthly||"資料不足")+
+      row("RSI(14)",a.rsi14==null?"資料不足":f(a.rsi14,1))+row("MACD",a.macd_direction||"資料不足")+
+      row("20日動能",a.momentum20==null?"資料不足":sg(a.momentum20))+row("行情日期",a.date||"未知")+
+      row("來源",a.source||"未標示")+"</div></div>";
+  }).join("");
+  return "<div class=\"card risk-card\"><div class=\"risk-head\"><span class=\"name\">市場技術風險評分</span><span class=\"risk-score "+cls+"\">"+score+"</span></div>"+
+    "<span class=\"chip "+(m.risk_score==null?"ok":m.risk_score>=60?"break":m.risk_score>=30?"near":"ok")+"\">"+(m.risk_level||"資料不足")+"</span>"+
+    "<p class=\"text\">"+(m.summary||"目前沒有可用的市場摘要。")+"</p>"+
+    "<div class=\"meta\"><span>有效主要指數 "+coverage+"</span><span>分析日期 "+(m.updated||"未知")+"</span></div>"+
+    "<p class=\"analysis-note\">評分方法："+(m.method||"未提供")+" 本分數是技術風險觀察，不是預測或買賣訊號。</p>"+
+    (tiles?"<div class=\"analysis-grid\">"+tiles+"</div>":"<p class=\"analysis-note\">目前沒有足夠的技術分析資料。</p>")+"</div>";
 }
 function card(i){
   if(i.error)return `<div class="card"><div class="name">${i.name}</div><span class="chip break">資料不可用</span><p class="text">${i.error}，稍後會再試。</p>${links(i)}</div>`;
@@ -94,6 +141,7 @@ fetch("data.json?"+Date.now()).then(r=>{if(!r.ok)throw new Error("HTTP "+r.statu
     const age=(Date.now()-new Date((d.updated||"").replace(" ","T")+"+08:00"))/864e5;
     if(Number.isFinite(age)&&age>3)$("#warn").innerHTML='<div class="stale">網站資料檔已超過 3 天未更新，數字可能過時。</div>';
   }
+  $("#market-analysis").innerHTML=marketAnalysis(d.market_analysis);
   $("#list").innerHTML=(d.items||[]).map(card).join("")+foreign(d.foreign,d.foreign_meta);
 }).catch(()=>{$("#sub").textContent="資料載入失敗,請稍後再試。";$("#warn").innerHTML='<div class="stale">無法讀取市場資料，請稍後再試。</div>';});
 </script>
