@@ -1,21 +1,27 @@
 {
-  "updated": "2026-11-06 23:08",
+  "updated": "2026-11-07 08:43",
+  "update_status": "success",
+  "successful_items": 8,
+  "total_items": 8,
   "items": [
     {
       "sym": "^TWII",
       "name": "台灣加權指數",
-      "date": "2026-11-06",
-      "close": 39701.64,
-      "chg": -4.51,
-      "support": 41513.57,
-      "dist": -4.4,
-      "ma60": 46415.23,
-      "vs_ma60": -14.5,
+      "date": "2026-11-05",
+      "close": 41574.72,
+      "chg": -3.2,
+      "support": 41855.82,
+      "dist": -0.7,
+      "ma60": 46490.63,
+      "vs_ma60": -10.6,
       "vol_ratio": null,
-      "drawdown": 20.3,
-      "text": "收盤低於近 60 日低點,等待後續確認",
+      "volume_status": "不適用",
+      "drawdown": 16.6,
+      "drawdown_status": "回落超過 15%（回落觀察）",
+      "text": "收盤低於近 60 日支撐，留意後續是否站回",
       "level": "break",
       "spark": [
+        44225.91,
         44928.76,
         45120.72,
         45518.07,
@@ -74,26 +80,25 @@
         44920.14,
         43307.54,
         42948.91,
-        41574.72,
-        39701.64
+        41574.72
       ],
-      "drawdown_status": "回落超過 15%（回落觀察）",
-      "stale": false,
-      "volume_status": "不適用"
+      "stale": false
     },
     {
       "sym": "^GSPC",
       "name": "標普 500",
       "date": "2026-11-06",
-      "close": 7410.59,
-      "chg": 0.77,
+      "close": 7376.86,
+      "chg": 0.31,
       "support": 7350.35,
-      "dist": 0.8,
-      "ma60": 7683.15,
-      "vs_ma60": -3.5,
+      "dist": 0.4,
+      "ma60": 7682.59,
+      "vs_ma60": -4.0,
       "vol_ratio": null,
-      "drawdown": 5.2,
-      "text": "接近近 60 日低點,量縮",
+      "volume_status": "不適用",
+      "drawdown": 5.7,
+      "drawdown_status": "未達 15% 回落門檻",
+      "text": "接近近 60 日支撐",
       "level": "near",
       "spark": [
         7785.76,
@@ -155,25 +160,25 @@
         7568.92,
         7688.62,
         7353.73,
-        7410.59
+        7376.86
       ],
-      "drawdown_status": "未達 15% 回落門檻",
-      "stale": false,
-      "volume_status": "不適用"
+      "stale": false
     },
     {
       "sym": "^IXIC",
       "name": "那斯達克指數",
       "date": "2026-11-06",
-      "close": 24678.69,
-      "chg": 1.5,
+      "close": 24579.42,
+      "chg": 1.09,
       "support": 24262.14,
-      "dist": 1.7,
-      "ma60": 26433.93,
-      "vs_ma60": -6.6,
+      "dist": 1.3,
+      "ma60": 26432.27,
+      "vs_ma60": -7.0,
       "vol_ratio": null,
-      "drawdown": 10.6,
-      "text": "接近近 60 日低點,量縮",
+      "volume_status": "不適用",
+      "drawdown": 10.9,
+      "drawdown_status": "未達 15% 回落門檻",
+      "text": "接近近 60 日支撐",
       "level": "near",
       "spark": [
         26729.16,
@@ -235,25 +240,25 @@
         25372.01,
         25736.51,
         24315.0,
-        24678.69
+        24579.42
       ],
-      "drawdown_status": "未達 15% 回落門檻",
-      "stale": false,
-      "volume_status": "不適用"
+      "stale": false
     },
     {
       "sym": "^DJI",
       "name": "道瓊工業指數",
       "date": "2026-11-06",
-      "close": 51380.48,
-      "chg": -0.28,
+      "close": 51285.73,
+      "chg": -0.46,
       "support": 50546.54,
-      "dist": 1.6,
-      "ma60": 52289.32,
-      "vs_ma60": -1.7,
+      "dist": 1.5,
+      "ma60": 52287.74,
+      "vs_ma60": -1.9,
       "vol_ratio": null,
-      "drawdown": 5.5,
-      "text": "接近近 60 日低點,量縮",
+      "volume_status": "不適用",
+      "drawdown": 5.6,
+      "drawdown_status": "未達 15% 回落門檻",
+      "text": "接近近 60 日支撐",
       "level": "near",
       "spark": [
         53732.41,
@@ -315,25 +320,25 @@
         51786.72,
         53356.12,
         51523.06,
-        51380.48
+        51285.73
       ],
-      "drawdown_status": "未達 15% 回落門檻",
-      "stale": false,
-      "volume_status": "不適用"
+      "stale": false
     },
     {
       "sym": "^SOX",
       "name": "費城半導體",
       "date": "2026-11-06",
-      "close": 9437.92,
-      "chg": 4.74,
+      "close": 9390.25,
+      "chg": 4.21,
       "support": 8997.39,
-      "dist": 4.9,
-      "ma60": 11726.57,
-      "vs_ma60": -19.5,
+      "dist": 4.4,
+      "ma60": 11725.78,
+      "vs_ma60": -19.9,
       "vol_ratio": null,
-      "drawdown": 35.5,
-      "text": "與支撐有一段距離",
+      "volume_status": "不適用",
+      "drawdown": 35.8,
+      "drawdown_status": "回落超過 25%（高回落觀察）",
+      "text": "與近 60 日支撐有一段距離",
       "level": "ok",
       "spark": [
         12417.05,
@@ -395,25 +400,25 @@
         10600.4,
         10268.65,
         9011.14,
-        9437.92
+        9390.25
       ],
-      "drawdown_status": "回落超過 25%（高回落觀察）",
-      "stale": false,
-      "volume_status": "不適用"
+      "stale": false
     },
     {
       "sym": "GC=F",
       "name": "黃金期貨",
       "date": "2026-11-06",
-      "close": 4057.4,
-      "chg": -1.36,
+      "close": 4079.5,
+      "chg": -0.83,
       "support": 3879.3,
-      "dist": 4.6,
-      "ma60": 4289.03,
-      "vs_ma60": -5.4,
-      "vol_ratio": 0.69,
-      "drawdown": 23.7,
-      "text": "與支撐有一段距離",
+      "dist": 5.2,
+      "ma60": 4289.4,
+      "vs_ma60": -4.9,
+      "vol_ratio": 1.02,
+      "volume_status": "有效",
+      "drawdown": 23.3,
+      "drawdown_status": "回落超過 15%（回落觀察）",
+      "text": "距近 60 日支撐尚遠",
       "level": "ok",
       "spark": [
         4437.3,
@@ -475,25 +480,25 @@
         3940.4,
         4073.0,
         4113.5,
-        4057.4
+        4079.5
       ],
-      "drawdown_status": "回落超過 15%（回落觀察）",
-      "stale": false,
-      "volume_status": "有效"
+      "stale": false
     },
     {
       "sym": "CL=F",
       "name": "WTI 原油期貨",
       "date": "2026-11-06",
-      "close": 90.53,
-      "chg": 0.01,
+      "close": 90.34,
+      "chg": -0.2,
       "support": 79.62,
-      "dist": 13.7,
-      "ma60": 93.65,
-      "vs_ma60": -3.3,
-      "vol_ratio": 0.47,
-      "drawdown": 19.8,
-      "text": "距支撐尚遠",
+      "dist": 13.5,
+      "ma60": 93.64,
+      "vs_ma60": -3.5,
+      "vol_ratio": 0.88,
+      "volume_status": "有效",
+      "drawdown": 20.0,
+      "drawdown_status": "回落超過 15%（回落觀察）",
+      "text": "距近 60 日支撐尚遠",
       "level": "ok",
       "spark": [
         82.4,
@@ -555,25 +560,25 @@
         96.09,
         88.12,
         90.52,
-        90.53
+        90.34
       ],
-      "drawdown_status": "回落超過 15%（回落觀察）",
-      "stale": false,
-      "volume_status": "有效"
+      "stale": false
     },
     {
       "sym": "TWD=X",
       "name": "美元兌台幣",
       "date": "2026-11-06",
-      "close": 32.73,
-      "chg": -0.29,
+      "close": 33.11,
+      "chg": 0.88,
       "support": 31.42,
-      "dist": 4.2,
+      "dist": 5.4,
       "ma60": 31.99,
-      "vs_ma60": 2.3,
+      "vs_ma60": 3.5,
       "vol_ratio": null,
-      "drawdown": 0.3,
-      "text": "與支撐有一段距離",
+      "volume_status": "不適用",
+      "drawdown": 0.0,
+      "drawdown_status": "未達 15% 回落門檻",
+      "text": "距近 60 日支撐尚遠",
       "level": "ok",
       "spark": [
         31.99,
@@ -635,11 +640,9 @@
         32.59,
         32.73,
         32.82,
-        32.73
+        33.11
       ],
-      "drawdown_status": "未達 15% 回落門檻",
-      "stale": false,
-      "volume_status": "不適用"
+      "stale": false
     }
   ],
   "foreign": [
@@ -648,13 +651,10 @@
       "net_yi": -911.9
     }
   ],
-  "update_status": "unknown",
-  "successful_items": null,
-  "total_items": 8,
   "foreign_meta": {
-    "status": "legacy",
-    "message": "此筆為既有資料快照；下次排程執行後會開始提供抓取狀態。",
+    "status": "success",
+    "message": "最新抓取成功",
     "source_date": "2026-11-06",
-    "checked_at": null
+    "checked_at": "2026-11-07 08:43"
   }
 }
