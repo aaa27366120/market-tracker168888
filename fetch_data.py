@@ -10,7 +10,10 @@ import io
 import json
 import os
 import re
+import time
 from typing import Any
+from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
@@ -38,6 +41,74 @@ STOOQ = {
 SUPPORT_DAYS, NEAR, FAR = 60, 2.0, 5.0
 FUT_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"  # 期交所開放資料：期貨每日交易行情（只提供最新一日）
 TWSE_TURNOVER_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK"  # 證交所：每日市場成交資訊
+
+
+NY = ZoneInfo("America/New_York")
+PAUSE = 3.0  # 每個標的之間的間隔（秒），避免瞬間連續請求
+
+def _yf(t: str) -> str:
+    return "https://finance.yahoo.com/quote/" + quote(t, safe="=")
+
+def _tv(s: str) -> str:
+    return "https://www.tradingview.com/chart/?symbol=" + quote(s, safe="")
+
+# 卡片連結。代碼未逐一實測，台指期的 Yahoo 連結最不確定，請點過確認。
+_TXL = {"yahoo": "https://tw.stock.yahoo.com/future/WTX%26", "tv": _tv("TAIFEX:TX1!")}
+LINKS = {
+    "^TWII": {"yahoo": _yf("^TWII"), "tv": _tv("TWSE:TAIEX")},
+    "TX": _TXL, "TXALL": _TXL,
+    "^GSPC": {"yahoo": _yf("^GSPC"), "tv": _tv("SP:SPX")},
+    "^IXIC": {"yahoo": _yf("^IXIC"), "tv": _tv("NASDAQ:IXIC")},
+    "^DJI": {"yahoo": _yf("^DJI"), "tv": _tv("DJ:DJI")},
+    "^SOX": {"yahoo": _yf("^SOX"), "tv": _tv("NASDAQ:SOX")},
+    "GC=F": {"yahoo": _yf("GC=F"), "tv": _tv("COMEX:GC1!")},
+    "CL=F": {"yahoo": _yf("CL=F"), "tv": _tv("NYMEX:CL1!")},
+    "TWD=X": {"yahoo": _yf("TWD=X"), "tv": _tv("FX_IDC:USDTWD")},
+}
+KINDS = {"^TWII": "tw", "TX": "twfut", "TXALL": "twfut", "GC=F": "24h", "CL=F": "24h", "TWD=X": "24h"}
+
+
+def retry(fn, *args, tries: int = 3, wait: float = 3.0, **kwargs):
+    """失敗時等一下再試，最多 tries 次；最後一次仍失敗就丟出例外。"""
+    for attempt in range(1, tries + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            if attempt == tries:
+                raise
+            print(f"{getattr(fn, '__name__', 'call')} 第 {attempt} 次失敗（{exc}），{wait * attempt:.0f} 秒後重試")
+            time.sleep(wait * attempt)
+
+
+def market_kind(sym: str) -> str:
+    return KINDS.get(sym, "us")
+
+
+def is_market_open(kind: str, now_utc: dt.datetime) -> bool:
+    tp, ny = now_utc.astimezone(TZ_TAIPEI), now_utc.astimezone(NY)
+    if kind == "tw":
+        return tp.weekday() < 5 and dt.time(9, 0) <= tp.time() < dt.time(13, 30)
+    if kind == "twfut":
+        return tp.weekday() < 5 and dt.time(8, 45) <= tp.time() < dt.time(13, 45)
+    if kind == "us":
+        return ny.weekday() < 5 and dt.time(9, 30) <= ny.time() < dt.time(16, 0)
+    wd, t = ny.weekday(), ny.time()  # 24 小時商品：美東週日 18:00 ～ 週五 17:00
+    return not (wd == 5 or (wd == 4 and t >= dt.time(17, 0)) or (wd == 6 and t < dt.time(18, 0)))
+
+
+def session_fields(sym: str, item_date: str | None, now_utc: dt.datetime) -> dict[str, str]:
+    kind = market_kind(sym)
+    is_open = is_market_open(kind, now_utc)
+    local = now_utc.astimezone(NY if kind in ("us", "24h") else TZ_TAIPEI).strftime("%Y-%m-%d")
+    if kind == "24h":
+        return {"session": "交易中" if is_open else "休市", "session_class": "open" if is_open else "closed"}
+    if kind == "twfut":
+        return {"session": "上一交易日資料" if is_open else "已收盤", "session_class": "closed"}
+    if is_open:
+        if item_date != local:  # 沒有內建休市日曆：交易時段內最新資料不是今天，就標示休市或無新資料
+            return {"session": "休市或無新資料", "session_class": "closed"}
+        return {"session": "盤中", "session_class": "open"}
+    return {"session": "已收盤", "session_class": "closed"}
 
 
 def from_yahoo(sym: str) -> pd.DataFrame:
@@ -87,7 +158,7 @@ def twse_turnover() -> dict[str, Any] | None:
         months = [(first - dt.timedelta(days=1)).replace(day=1), first]
         rows = []
         for m in months:
-            r = requests.get(TWSE_TURNOVER_URL, params={"date": m.strftime("%Y%m01"), "response": "json"}, timeout=20)
+            r = retry(requests.get, TWSE_TURNOVER_URL, params={"date": m.strftime("%Y%m01"), "response": "json"}, timeout=20)
             r.raise_for_status()
             rows += r.json().get("data") or []
         series = []
@@ -124,7 +195,7 @@ def pick(r: dict[str, Any], *keys: str) -> Any:
 
 def tx_rows() -> dict[str, dict[str, dict[str, Any]]]:
     """{YYYYMMDD: {"day": 近月一般盤, "night": 近月盤後}}"""
-    resp = requests.get(FUT_URL, timeout=30)
+    resp = retry(requests.get, FUT_URL, timeout=30)
     resp.raise_for_status()
     rows = resp.json()
     by: dict[str, dict[str, dict[str, Any]]] = {}
@@ -195,12 +266,12 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
     return it
 
 
-def update_futures(hist: dict[str, Any]) -> tuple[dict[str, list], list[dict[str, Any]]]:
+def update_futures(hist: dict[str, Any], fetch: bool = True) -> tuple[dict[str, list], list[dict[str, Any]]]:
     hist = {k: list(v) for k, v in (hist or {}).items()}
     ok, live = True, None
     try:
-        by = tx_rows()
-        ok = bool(by)
+        by = tx_rows() if fetch else {}
+        ok = bool(by) or not fetch
         for k, recs in fut_records(by).items():  # 以日期合併累積（API 只給最新一日）
             merged = {x["date"]: x for x in hist.get(k, [])}
             merged.update({x["date"]: x for x in recs})
@@ -217,14 +288,15 @@ def update_futures(hist: dict[str, Any]) -> tuple[dict[str, list], list[dict[str
     return hist, items
 
 
-def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None = None) -> dict[str, Any]:
+def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None = None,
+            kind: str = "us", is_open: bool = False) -> dict[str, Any]:
     errors = []
     df = None
     for source in (from_yahoo, from_stooq):
         if source is from_stooq and sym not in STOOQ:
             continue
         try:
-            candidate = source(sym)
+            candidate = retry(source, sym)
             if candidate is not None and len(candidate) >= SUPPORT_DAYS + 2:
                 df = candidate
                 break
@@ -249,23 +321,26 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
     drawdown = max(0.0, (one_year_high - close) / one_year_high * 100)
 
     # Treat zero/missing provider volume as unavailable, never as a genuine 0x ratio.
-    vol_ratio, volume, unit = None, None, ""
-    if has_vol and "Volume" in df:
+    vol_ratio, volume, unit, volume_note = None, None, "", ""
+    intraday = is_open and kind in ("tw", "us")  # 盤中的量只有半天，不拿來算量比
+    if has_vol and "Volume" in df and not intraday:
         volumes = pd.to_numeric(df["Volume"], errors="coerce")
-        current_volume = volumes.iloc[-1]
-        prior_volumes = volumes.iloc[-21:-1].where(volumes.iloc[-21:-1] > 0).dropna()
+        vi = len(df) + (-2 if kind == "24h" else -1)  # 24 小時商品最新一根未完成，改用前一根
+        current_volume = volumes.iloc[vi]
+        prior_volumes = volumes.iloc[vi - 20:vi].where(volumes.iloc[vi - 20:vi] > 0).dropna()
         if pd.notna(current_volume) and current_volume > 0 and not prior_volumes.empty:
             avg_volume = float(prior_volumes.mean())
             if avg_volume > 0:
                 vol_ratio = float(current_volume / avg_volume)
                 volume, unit = float(current_volume), "口"
+                volume_note = "前一交易日" if kind == "24h" else ""
 
     last_date = pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d")
-    if override and override.get("date") == last_date:  # 加權指數：改用證交所成交金額
+    if override and override.get("date") == last_date and not intraday:  # 加權指數：改用證交所成交金額
         vol_ratio, volume, unit = override["ratio"], override["amount_yi"], "億元"
 
     if close < support:
-        text, level = "收盤低於近 60 日支撐，留意後續是否站回", "break"
+        text, level = ("盤中低於近 60 日支撐，待收盤確認" if is_open else "收盤低於近 60 日支撐，留意後續是否站回"), "break"
     elif dist <= NEAR:
         extra = "量縮" if vol_ratio is not None and vol_ratio < 0.8 else "放量" if vol_ratio is not None and vol_ratio > 1.5 else ""
         text, level = "接近近 60 日支撐" + (f"，{extra}" if extra else ""), "near"
@@ -291,7 +366,11 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
         "ma60": round(ma60, 2), "vs_ma60": round((close / ma60 - 1) * 100, 1),
         "vol_ratio": None if vol_ratio is None else round(vol_ratio, 2),
         "volume": volume, "volume_unit": unit,
-        "volume_status": "有效" if vol_ratio is not None else "不適用" if not has_vol else "無有效成交量資料",
+        "volume_note": volume_note,
+        "volume_status": ("有效" if vol_ratio is not None
+                          else "盤中不顯示" if intraday and (has_vol or sym == "^TWII")
+                          else "尚無成交金額資料" if sym == "^TWII"
+                          else "不適用" if not has_vol else "無有效成交量資料"),
         "drawdown": round(drawdown, 1), "drawdown_status": drawdown_status,
         "text": text, "level": level,
         "spark": [round(float(x), 2) for x in df["Close"].tail(60)],
@@ -303,7 +382,8 @@ def foreign_flow(previous: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
     """Return foreign-investor net flow history and explicit source freshness."""
     fetched_at = dt.datetime.now(TZ_TAIPEI).strftime("%Y-%m-%d %H:%M")
     try:
-        response = requests.get(
+        response = retry(
+            requests.get,
             "https://www.twse.com.tw/rwd/zh/fund/BFI82U?type=day&response=json",
             timeout=20,
         )
@@ -344,18 +424,43 @@ def load_previous() -> dict[str, Any]:
         return {}
 
 
-def main() -> None:
+def main(now_utc: dt.datetime | None = None) -> None:
     previous = load_previous()
     old_by_symbol = {x.get("sym"): x for x in previous.get("items", []) if isinstance(x, dict)}
-    turnover = twse_turnover()
-    fut_hist, fut_items = update_futures(previous.get("fut_hist", {}))
+    now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
+    now = now_utc.astimezone(TZ_TAIPEI)
+    today = now.strftime("%Y-%m-%d")
+    manual = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"  # 手動執行：全部重抓
+    post_close = now.weekday() < 5 and now.time() >= dt.time(15, 30)     # 台股收盤後
+    pre_market = 5 <= now.hour < 9                                       # 台股開盤前（取夜盤最新價）
+
+    def need(prev_date: str | None, allowed: bool) -> bool:
+        """證交所、期交所的盤後資料：只在允許時段抓；沒有舊資料或手動執行時一律抓；當天已有就不重抓。"""
+        return manual or not prev_date or (allowed and prev_date != today)
+
+    prev_turnover = previous.get("turnover")
+    turnover = twse_turnover() if need((prev_turnover or {}).get("date"), post_close) else prev_turnover
+    hist0 = previous.get("fut_hist", {})
+    last_fut = (hist0.get("TX") or [{}])[-1].get("date")
+    fut_hist, fut_items = update_futures(hist0, need(last_fut, post_close or pre_market))
+    prev_foreign = previous.get("foreign", [])
+    if need(prev_foreign[-1].get("date") if prev_foreign else None, post_close):
+        foreign, foreign_meta = foreign_flow(prev_foreign)
+    else:
+        foreign = prev_foreign
+        foreign_meta = previous.get("foreign_meta") or {"status": "success", "message": "沿用上一次收盤後資料"}
+
     items = []
     success_count = sum(1 for x in fut_items if not x.get("error") and not x.get("stale"))
     total = len(SYMBOLS) + len(fut_items)
-    for symbol in SYMBOLS:
+    for n, symbol in enumerate(SYMBOLS):
         sym, name, _ = symbol
+        kind = market_kind(sym)
+        if n:
+            time.sleep(PAUSE)
         try:
-            item = analyse(*symbol, override=turnover if sym == "^TWII" else None)
+            item = analyse(*symbol, override=turnover if sym == "^TWII" else None,
+                           kind=kind, is_open=is_market_open(kind, now_utc))
             success_count += 1
         except Exception as exc:
             old = old_by_symbol.get(sym)
@@ -371,8 +476,11 @@ def main() -> None:
         if sym == "^TWII":  # 台指期放在加權指數後面
             items.extend(fut_items)
 
-    foreign, foreign_meta = foreign_flow(previous.get("foreign", []))
-    now = dt.datetime.now(TZ_TAIPEI)
+    for it in items:  # 市場狀態與看盤連結
+        if not it.get("error"):
+            it.update(session_fields(it.get("sym", ""), it.get("date"), now_utc))
+        it["links"] = LINKS.get(it.get("sym"))
+
     data = {
         "updated": now.strftime("%Y-%m-%d %H:%M"),
         "update_status": "success" if success_count == total else "partial" if success_count else "failed",
@@ -381,6 +489,7 @@ def main() -> None:
         "items": items,
         "foreign": foreign,
         "foreign_meta": foreign_meta,
+        "turnover": turnover,
         "fut_hist": fut_hist,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -388,7 +497,7 @@ def main() -> None:
     with open(temp_out, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
     os.replace(temp_out, OUT)
-    print(f"完成 {data['updated']}；行情成功 {success_count}/{total}；外資狀態 {foreign_meta['status']}")
+    print(f"完成 {data['updated']}；行情成功 {success_count}/{total}；外資狀態 {foreign_meta.get('status')}")
 
 
 if __name__ == "__main__":
