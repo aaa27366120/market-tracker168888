@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-07 09:40",
+  "updated": "2026-11-07 12:46",
   "update_status": "success",
   "successful_items": 10,
   "total_items": 10,
@@ -548,7 +548,7 @@
       "dist": 13.5,
       "ma60": 93.64,
       "vs_ma60": -3.5,
-      "vol_ratio": 0.88,
+      "vol_ratio": 0.9,
       "volume": 253859.0,
       "volume_unit": "口",
       "volume_status": "有效",
@@ -710,10 +710,10 @@
     }
   ],
   "foreign_meta": {
-    "status": "stale",
-    "message": "本次抓取失敗，沿用舊資料：HTTPSConnectionPool(host='www.twse.com.tw', port=443): Read timed out. (read timeout=20)",
+    "status": "success",
+    "message": "最新抓取成功",
     "source_date": "2026-11-06",
-    "checked_at": "2026-11-07 09:40"
+    "checked_at": "2026-11-07 12:46"
   },
   "fut_hist": {
     "TX": [
