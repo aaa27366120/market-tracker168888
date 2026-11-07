@@ -45,19 +45,23 @@ footer{color:var(--mute);font-size:.8rem;padding:6px 0 20px}
 <div id="warn"></div>
 <div id="list" class="grid"></div>
 <details><summary>規則說明</summary>
-<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。</p></details>
+<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所成交金額（億元），期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝盤後加一般盤合併（高低點取極值、成交量相加，收盤取一般盤收盤），早上若夜盤已結束而日盤未開，會顯示盤後最新價。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。</p></details>
 <footer>資料來自證交所與公開行情來源,可能有延遲或誤差,以官方公告為準。本頁僅為資訊整理,不構成任何投資建議;每個人的資金與風險承受度不同,請自行判斷。</footer>
 </main>
 <script>
 const $=s=>document.querySelector(s);
 const LV={ok:"一般",near:"接近支撐",break:"低於支撐"};
 const f=(n,d=2)=>n==null?"—":Number(n).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
-const sg=n=>(n>0?"+":"")+f(n)+"%";
+const sg=n=>n==null?"—":(n>0?"+":"")+f(n)+"%";
+const row=(l,v)=>v==null?"":`<div>${l}<b>${v}</b></div>`;
+const vol=i=>i.volume==null?null:f(i.volume,0)+" "+(i.volume_unit||"");
 function spark(a,sup){
+  if(!a||a.length<2)return "";
+  const has=sup!=null;if(!has)sup=Math.min(...a);
   const lo=Math.min(...a,sup),hi=Math.max(...a),r=hi-lo||1,w=300,h=56;
   const y=v=>h-4-((v-lo)/r)*(h-8),x=i=>i*w/(a.length-1);
   const p=a.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="近 60 日走勢與支撐線"><line x1="0" x2="${w}" y1="${y(sup)}" y2="${y(sup)}" stroke="var(--sup)" stroke-dasharray="4 3" stroke-width="1.2"/><polyline points="${p}" fill="none" stroke="var(--spark)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="近 60 日走勢與支撐線">${has?`<line x1="0" x2="${w}" y1="${y(sup)}" y2="${y(sup)}" stroke="var(--sup)" stroke-dasharray="4 3" stroke-width="1.2"/>`:""}<polyline points="${p}" fill="none" stroke="var(--spark)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
 }
 function card(i){
   if(i.error)return `<div class="card"><div class="name">${i.name}</div><span class="chip break">資料不可用</span><p class="text">${i.error}，稍後會再試。</p></div>`;
@@ -65,7 +69,7 @@ function card(i){
   return `<div class="card"><div class="name">${i.name}</div>
   <div class="pr"><span class="price">${f(i.close)}</span><span class="chg ${c}">${sg(i.chg)}</span></div>
   <span class="chip ${i.level}">${LV[i.level]||"一般"}</span><p class="text">${i.text}</p>${i.stale?`<p class="text">⚠ 行情更新失敗，以下為舊資料；原始日期 ${i.date||"未知"}</p>`:""}
-  <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div><div>距季線<b>${sg(i.vs_ma60)}</b></div><div>一年高點回落<b>${f(i.drawdown,1)}%</b></div><div>回落觀察<b>${i.drawdown_status||"—"}</b></div></div>
+  <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div>${row("成交量",vol(i))}${row("未平倉",i.oi==null?null:f(i.oi,0)+" 口")}${row("距季線",i.vs_ma60==null?null:sg(i.vs_ma60))}${row("一年高點回落",i.drawdown==null?null:f(i.drawdown,1)+"%")}${row("回落觀察",i.drawdown_status)}</div>
   ${spark(i.spark,i.support)}<div class="meta"><span>支撐 ${f(i.support)}</span><span>${i.date.slice(5)}</span></div></div>`;
 }
 function foreign(a,meta){
