@@ -406,7 +406,7 @@ def _period_snapshot(series: pd.Series, fast_n: int, slow_n: int) -> dict[str, A
 def technical_analysis(df: pd.DataFrame) -> dict[str, Any]:
     close = pd.to_numeric(df["Close"],errors="coerce").dropna().sort_index()
     if len(close) < 35: return {"status":"insufficient","message":"有效日線少於 35 筆，技術指標資料不足"}
-    weekly, monthly = close.resample("W-FRI").last().dropna(), close.resample("M").last().dropna()
+    weekly, monthly = close.resample("W-FRI").last().dropna(), close.resample("ME").last().dropna()
     delta=close.diff(); gains=delta.clip(lower=0); losses=-delta.clip(upper=0)
     ag=gains.ewm(alpha=1/14,adjust=False,min_periods=14).mean()
     al=losses.ewm(alpha=1/14,adjust=False,min_periods=14).mean()
