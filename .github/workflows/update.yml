@@ -32,7 +32,10 @@ jobs:
           assert data.get("update_status") != "failed", "所有行情標的更新失敗，停止提交"
           assert isinstance(data.get("items"), list) and data["items"], "行情清單為空"
           assert "foreign_meta" in data, "缺少外資資料狀態"
-          print(f"資料驗證完成：{data.get('successful_items')}/{data.get('total_items')} 個標的成功")
+          analysis = data.get("market_analysis") or {}
+          assert analysis.get("risk_score") is not None, "主要指數有效資料不足，停止提交，避免發布沒有有效分析的資料"
+          assert analysis.get("coverage", 0) >= 2, "至少需要 2 個主要指數成功更新，否則停止提交"
+          print(f"資料驗證完成：行情 {data.get('successful_items')}/{data.get('total_items')} 個標的成功；市場分析涵蓋 {analysis.get('coverage')}/{analysis.get('coverage_total')} 個指數")
           PY
       - name: 提交更新
         run: |
