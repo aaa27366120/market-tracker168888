@@ -509,6 +509,17 @@ def load_previous() -> dict[str, Any]:
         return {}
 
 
+def should_fetch(old: dict[str, Any] | None, kind: str, mkt_open: bool, manual: bool, post_close: bool) -> bool:
+    """盤中只抓開盤中的市場；剛收盤的市場補抓一次最終價；其餘沿用上次資料。沒有休市日曆，休市日照常當作開盤處理。"""
+    if manual or not old or old.get("error") or old.get("stale") or old.get("close") is None:
+        return True
+    if mkt_open or old.get("captured_open", True):  # 舊資料沒有標記時，視為盤中抓的，補抓一次
+        return True
+    if kind == "tw" and post_close and old.get("volume_status") != "有效":  # 收盤後補上成交金額量比
+        return True
+    return False
+
+
 def main(now_utc: dt.datetime | None = None) -> None:
     previous = load_previous()
     old_by_symbol = {x.get("sym"): x for x in previous.get("items", []) if isinstance(x, dict)}
@@ -538,25 +549,34 @@ def main(now_utc: dt.datetime | None = None) -> None:
     items = []
     success_count = sum(1 for x in fut_items if not x.get("error") and not x.get("stale"))
     total = len(SYMBOLS) + len(fut_items)
-    for n, symbol in enumerate(SYMBOLS):
+    fetched_before = False
+    for symbol in SYMBOLS:
         sym, name, _ = symbol
         kind = market_kind(sym)
-        if n:
-            time.sleep(PAUSE)
-        try:
-            item = analyse(*symbol, override=turnover if sym == "^TWII" else None,
-                           kind=kind, is_open=is_market_open(kind, now_utc))
+        mkt_open = is_market_open(kind, now_utc)
+        old = old_by_symbol.get(sym)
+        if not should_fetch(old, kind, mkt_open, manual, post_close):
+            item = dict(old)  # 該市場沒開盤、且已有收盤資料：沿用，不發請求
             success_count += 1
-        except Exception as exc:
-            old = old_by_symbol.get(sym)
-            if old and old.get("date") and old.get("close") is not None:
-                item = dict(old)
-                item["stale"] = True
-                item["fetch_error"] = str(exc)
-                item["text"] = f"行情更新失敗，顯示舊資料（{item['date']}）"
-            else:
-                item = {"sym": sym, "name": name, "error": str(exc), "stale": True}
-            print(f"[{sym}] 更新失敗：{exc}")
+            print(f"[{sym}] 市場未開盤，沿用上次資料（{item.get('date')}）")
+        else:
+            if fetched_before:
+                time.sleep(PAUSE)
+            fetched_before = True
+            try:
+                item = analyse(*symbol, override=turnover if sym == "^TWII" else None,
+                               kind=kind, is_open=mkt_open)
+                item["captured_open"] = mkt_open  # 記錄這筆是不是盤中抓的，盤後要再補抓一次最終價
+                success_count += 1
+            except Exception as exc:
+                if old and old.get("date") and old.get("close") is not None:
+                    item = dict(old)
+                    item["stale"] = True
+                    item["fetch_error"] = str(exc)
+                    item["text"] = f"行情更新失敗，顯示舊資料（{item['date']}）"
+                else:
+                    item = {"sym": sym, "name": name, "error": str(exc), "stale": True}
+                print(f"[{sym}] 更新失敗：{exc}")
         items.append(item)
         if sym == "^TWII":  # 台指期放在加權指數後面
             items.extend(fut_items)
