@@ -25,6 +25,8 @@ h1{font-size:1.35rem;margin:8px 0 2px}
 .analysis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
 .analysis-item{border:1px solid var(--line);border-radius:9px;padding:9px;min-width:0}
 .analysis-item .name{display:block;margin-bottom:4px}
+.analysis-item .pr{margin-bottom:4px}
+.analysis-item .price{font-size:1.05rem}
 .analysis-item .facts{font-size:.76rem}
 .credit-link{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--trigger);text-decoration:none;font-weight:700}
 .credit-link small{display:block;color:var(--mute);font-weight:400}
@@ -76,7 +78,7 @@ footer{color:var(--mute);font-size:.8rem;padding:6px 0 20px}
   <div id="market-analysis" class="grid"></div>
 </section>
 <details><summary>規則說明</summary>
-<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所成交金額（億元），期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝盤後加一般盤合併（高低點取極值、成交量相加，收盤取一般盤收盤），早上若夜盤已結束而日盤未開，會顯示盤後最新價。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每小時、美股交易時段約每 2 小時，另有收盤後的最終更新。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p></details>
+<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所「每日市場成交資訊」的成交金額（億元），統計口徑可能與新聞常引用的集中市場成交金額不同，量比使用同一來源的連續資料；期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝盤後加一般盤合併（高低點取極值、成交量相加，收盤取一般盤收盤），早上若夜盤已結束而日盤未開，會顯示盤後最新價。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。加權指數的「收盤核對」會在收盤後拿 Yahoo 收盤價和證交所公布值比對，差距超過 0.05% 會標示異常。市場分析中標示「含盤中」代表最新一根日線尚未收盤，指標可能在收盤後變動。市場分析各項目的價格與漲跌，取自同一份行情資料。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每 30 分鐘、美股交易時段約每 2 小時，另有收盤後的最終更新（GitHub 排程可能延遲）。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p></details>
 <footer>資料來自證交所與公開行情來源,可能有延遲或誤差,以官方公告為準。本頁僅為資訊整理,不構成任何投資建議;每個人的資金與風險承受度不同,請自行判斷。</footer>
 </main>
 <script>
@@ -86,6 +88,10 @@ const f=(n,d=2)=>n==null?"—":Number(n).toLocaleString("en-US",{minimumFraction
 const sg=n=>n==null?"—":(n>0?"+":"")+f(n)+"%";
 const row=(l,v)=>v==null?"":`<div>${l}<b>${v}</b></div>`;
 const vol=i=>i.volume==null?null:f(i.volume,0)+" "+(i.volume_unit||"")+(i.volume_note?`（${i.volume_note}）`:"");
+const xc=i=>{const c=i.crosscheck;if(!c)return null;
+  if(c.status==="ok")return `一致（證交所 ${f(c.official)}）`;
+  if(c.status==="mismatch")return `<span style="color:var(--break)">差 ${sg(c.diff_pct)}（證交所 ${f(c.official)}）</span>`;
+  return c.status==="pending"?"待收盤後核對":"無法核對";};
 const tag=i=>i.session?`<span class="sess ${i.session_class||""}">${i.session}</span>`:"";
 const links=i=>i.links?`<div class="links"><a href="${i.links.yahoo}" target="_blank" rel="noopener noreferrer">Yahoo 行情</a><a href="${i.links.tv}" target="_blank" rel="noopener noreferrer">TradingView K 線</a></div>`:"";
 function spark(a,sup){
@@ -103,17 +109,19 @@ function marketAnalysis(m){
   const coverage=(m.coverage??0)+"/"+(m.coverage_total??4);
   const tiles=(m.assets||[]).map(a=>{
     const trend=a.stale?"舊資料":a.trend||"資料不足";
-    return "<div class=\"analysis-item\"><span class=\"name\">"+(a.name||a.sym)+"</span><div class=\"facts\">"+
+    return "<div class=\"analysis-item\"><span class=\"name\">"+(a.name||a.sym)+(a.intraday?'<span class="sess open">含盤中</span>':"")+"</span>"+
+      '<div class="pr"><span class="price">'+f(a.close)+'</span><span class="chg '+(a.chg>=0?"up":"dn")+'">'+sg(a.chg)+'</span></div><div class="facts">'+
+      row("距 MA20",a.vs_ma20==null?null:sg(a.vs_ma20))+row("距 MA60",a.vs_ma60==null?null:sg(a.vs_ma60))+
       row("日線",trend)+row("週線",a.weekly||"資料不足")+row("月線",a.monthly||"資料不足")+
       row("RSI(14)",a.rsi14==null?"資料不足":f(a.rsi14,1))+row("MACD",a.macd_direction||"資料不足")+
       row("20日動能",a.momentum20==null?"資料不足":sg(a.momentum20))+row("行情日期",a.date||"未知")+
-      row("來源",a.source||"未標示")+"</div></div>";
+      row("來源",a.source||"未標示")+row("收盤核對",xc(a))+"</div></div>";
   }).join("");
   return "<div class=\"card risk-card\"><div class=\"risk-head\"><span class=\"name\">市場技術風險評分</span><span class=\"risk-score "+cls+"\">"+score+"</span></div>"+
     "<span class=\"chip "+(m.risk_score==null?"ok":m.risk_score>=60?"break":m.risk_score>=30?"near":"ok")+"\">"+(m.risk_level||"資料不足")+"</span>"+
     "<p class=\"text\">"+(m.summary||"目前沒有可用的市場摘要。")+"</p>"+
     "<div class=\"meta\"><span>有效主要指數 "+coverage+"</span><span>分析日期 "+(m.updated||"未知")+"</span></div>"+
-    "<p class=\"analysis-note\">評分方法："+(m.method||"未提供")+" 本分數是技術風險觀察，不是預測或買賣訊號。</p>"+
+    (m.includes_intraday?'<p class="analysis-note">⚠ 目前含盤中未完成的資料，各項指標與風險分數可能在收盤後變動。</p>':"")+"<p class=\"analysis-note\">評分方法："+(m.method||"未提供")+" 本分數是技術風險觀察，不是預測或買賣訊號。</p>"+
     (tiles?"<div class=\"analysis-grid\">"+tiles+"</div>":"<p class=\"analysis-note\">目前沒有足夠的技術分析資料。</p>")+"</div>";
 }
 function card(i){
@@ -122,7 +130,7 @@ function card(i){
   return `<div class="card"><div class="name">${i.name}${tag(i)}</div>
   <div class="pr"><span class="price">${f(i.close)}</span><span class="chg ${c}">${sg(i.chg)}</span></div>
   <span class="chip ${i.level}">${LV[i.level]||"一般"}</span><p class="text">${i.text}</p>${i.stale?`<p class="text">⚠ 行情更新失敗，以下為舊資料；原始日期 ${i.date||"未知"}</p>`:""}
-  <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div>${row("成交量",vol(i))}${row("未平倉",i.oi==null?null:f(i.oi,0)+" 口")}${row("距季線",i.vs_ma60==null?null:sg(i.vs_ma60))}${row("一年高點回落",i.drawdown==null?null:f(i.drawdown,1)+"%")}${row("回落觀察",i.drawdown_status)}</div>
+  <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div>${row("成交量",vol(i))}${row("收盤核對",xc(i))}${row("未平倉",i.oi==null?null:f(i.oi,0)+" 口")}${row("距季線",i.vs_ma60==null?null:sg(i.vs_ma60))}${row("一年高點回落",i.drawdown==null?null:f(i.drawdown,1)+"%")}${row("回落觀察",i.drawdown_status)}</div>
   ${spark(i.spark,i.support)}<div class="meta"><span>支撐 ${f(i.support)}</span><span>${i.date.slice(5)}</span></div>${links(i)}</div>`;
 }
 function foreign(a,meta){
