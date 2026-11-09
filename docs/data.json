@@ -1,7 +1,18 @@
 {
-  "updated": "2026-11-07 14:50",
-  "update_status": "success",
-  "successful_items": 10,
+  "market_analysis": {
+    "risk_score": null,
+    "risk_level": "資料不足",
+    "summary": "主要股價指數有效資料不足，暫不計算市場風險分數。",
+    "coverage": 0,
+    "coverage_total": 4,
+    "scored_indices": [],
+    "assets": [],
+    "updated": null,
+    "method": "四個主要指數等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"
+  },
+  "updated": "2026-11-09 10:24",
+  "update_status": "partial",
+  "successful_items": 2,
   "total_items": 10,
   "items": [
     {
@@ -21,7 +32,7 @@
       "volume_status": "有效",
       "drawdown": 20.3,
       "drawdown_status": "回落超過 15%（回落觀察）",
-      "text": "收盤低於近 60 日支撐，留意後續是否站回",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "break",
       "spark": [
         44928.76,
@@ -85,13 +96,14 @@
         41574.72,
         39701.64
       ],
-      "stale": false,
-      "session": "已收盤",
+      "stale": true,
+      "session": "休市或無新資料",
       "session_class": "closed",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255ETWII",
         "tv": "https://www.tradingview.com/chart/?symbol=TWSE%3ATAIEX"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     },
     {
       "sym": "TX",
@@ -113,7 +125,7 @@
       ],
       "history_days": 1,
       "text": "歷史資料累積中（1/60 天），滿 5 天後開始顯示支撐",
-      "session": "已收盤",
+      "session": "上一交易日資料",
       "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/future/WTX%26",
@@ -140,7 +152,7 @@
       ],
       "history_days": 1,
       "text": "歷史資料累積中（1/60 天），滿 5 天後開始顯示支撐",
-      "session": "已收盤",
+      "session": "上一交易日資料",
       "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/future/WTX%26",
@@ -164,7 +176,7 @@
       "volume_status": "不適用",
       "drawdown": 5.7,
       "drawdown_status": "未達 15% 回落門檻",
-      "text": "接近近 60 日支撐",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "near",
       "spark": [
         7785.76,
@@ -228,13 +240,14 @@
         7353.73,
         7376.86
       ],
-      "stale": false,
+      "stale": true,
       "session": "已收盤",
       "session_class": "closed",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255EGSPC",
         "tv": "https://www.tradingview.com/chart/?symbol=SP%3ASPX"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     },
     {
       "sym": "^IXIC",
@@ -253,7 +266,7 @@
       "volume_status": "不適用",
       "drawdown": 10.9,
       "drawdown_status": "未達 15% 回落門檻",
-      "text": "接近近 60 日支撐",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "near",
       "spark": [
         26729.16,
@@ -317,13 +330,14 @@
         24315.0,
         24579.43
       ],
-      "stale": false,
+      "stale": true,
       "session": "已收盤",
       "session_class": "closed",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255EIXIC",
         "tv": "https://www.tradingview.com/chart/?symbol=NASDAQ%3AIXIC"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     },
     {
       "sym": "^DJI",
@@ -342,7 +356,7 @@
       "volume_status": "不適用",
       "drawdown": 5.6,
       "drawdown_status": "未達 15% 回落門檻",
-      "text": "接近近 60 日支撐",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "near",
       "spark": [
         53732.41,
@@ -406,13 +420,14 @@
         51523.06,
         51285.73
       ],
-      "stale": false,
+      "stale": true,
       "session": "已收盤",
       "session_class": "closed",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255EDJI",
         "tv": "https://www.tradingview.com/chart/?symbol=DJ%3ADJI"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     },
     {
       "sym": "^SOX",
@@ -431,7 +446,7 @@
       "volume_status": "不適用",
       "drawdown": 35.8,
       "drawdown_status": "回落超過 25%（高回落觀察）",
-      "text": "與近 60 日支撐有一段距離",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "ok",
       "spark": [
         12417.05,
@@ -495,13 +510,14 @@
         9011.14,
         9390.25
       ],
-      "stale": false,
+      "stale": true,
       "session": "已收盤",
       "session_class": "closed",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2F%255ESOX",
         "tv": "https://www.tradingview.com/chart/?symbol=NASDAQ%3ASOX"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     },
     {
       "sym": "GC=F",
@@ -520,7 +536,7 @@
       "volume_status": "有效",
       "drawdown": 23.4,
       "drawdown_status": "回落超過 15%（回落觀察）",
-      "text": "距近 60 日支撐尚遠",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "ok",
       "spark": [
         4437.3,
@@ -584,13 +600,14 @@
         4113.5,
         4074.9
       ],
-      "stale": false,
-      "session": "休市",
-      "session_class": "closed",
+      "stale": true,
+      "session": "交易中",
+      "session_class": "open",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2FGC=F",
         "tv": "https://www.tradingview.com/chart/?symbol=COMEX%3AGC1%21"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     },
     {
       "sym": "CL=F",
@@ -609,7 +626,7 @@
       "volume_status": "有效",
       "drawdown": 19.6,
       "drawdown_status": "回落超過 15%（回落觀察）",
-      "text": "距近 60 日支撐尚遠",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "ok",
       "spark": [
         82.4,
@@ -673,13 +690,14 @@
         90.52,
         90.83
       ],
-      "stale": false,
-      "session": "休市",
-      "session_class": "closed",
+      "stale": true,
+      "session": "交易中",
+      "session_class": "open",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2FCL=F",
         "tv": "https://www.tradingview.com/chart/?symbol=NYMEX%3ACL1%21"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     },
     {
       "sym": "TWD=X",
@@ -698,7 +716,7 @@
       "volume_status": "不適用",
       "drawdown": 0.0,
       "drawdown_status": "未達 15% 回落門檻",
-      "text": "距近 60 日支撐尚遠",
+      "text": "行情更新失敗，顯示舊資料（2026-11-06）",
       "level": "ok",
       "spark": [
         31.99,
@@ -762,13 +780,14 @@
         32.82,
         33.11
       ],
-      "stale": false,
-      "session": "休市",
-      "session_class": "closed",
+      "stale": true,
+      "session": "交易中",
+      "session_class": "open",
       "links": {
         "yahoo": "https://finance.yahoo.com/quote/https%3A%2F%2Ftw.stock.yahoo.com%2Fquote%2FUSDTWD=X",
         "tv": "https://www.tradingview.com/chart/?symbol=FX_IDC%3AUSDTWD"
-      }
+      },
+      "fetch_error": "Invalid frequency: M. Failed to parse with error message: ValueError(\"'M' is no longer supported for offsets. Please use 'ME' instead.\")"
     }
   ],
   "foreign": [
