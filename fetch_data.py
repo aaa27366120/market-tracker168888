@@ -55,15 +55,15 @@ def _tv(s: str) -> str:
 # 卡片連結。代碼未逐一實測，台指期的 Yahoo 連結最不確定，請點過確認。
 _TXL = {"yahoo": "https://tw.stock.yahoo.com/future/WTX%26", "tv": _tv("TAIFEX:TX1!")}
 LINKS = {
-    "^TWII": {"yahoo": "https://tw.stock.yahoo.com/quote/%5ETWII", "tv": _tv("TWSE:TAIEX")},
+    "^TWII": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5ETWII"), "tv": _tv("TWSE:TAIEX")},
     "TX": _TXL, "TXALL": _TXL,
-    "^GSPC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EGSPC", "tv": _tv("SP:SPX")},
-    "^IXIC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EIXIC", "tv": _tv("NASDAQ:IXIC")},
-    "^DJI": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EDJI", "tv": _tv("DJ:DJI")},
-    "^SOX": {"yahoo": "https://tw.stock.yahoo.com/quote/%5ESOX", "tv": _tv("NASDAQ:SOX")},
-    "GC=F": {"yahoo": "https://tw.stock.yahoo.com/quote/GC=F", "tv": _tv("COMEX:GC1!")},
-    "CL=F": {"yahoo": "https://tw.stock.yahoo.com/quote/CL=F", "tv": _tv("NYMEX:CL1!")},
-    "TWD=X": {"yahoo": "https://tw.stock.yahoo.com/quote/USDTWD=X", "tv": _tv("FX_IDC:USDTWD")},
+    "^GSPC": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EGSPC"), "tv": _tv("SP:SPX")},
+    "^IXIC": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EIXIC"), "tv": _tv("NASDAQ:IXIC")},
+    "^DJI": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EDJI"), "tv": _tv("DJ:DJI")},
+    "^SOX": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5ESOX"), "tv": _tv("NASDAQ:SOX")},
+    "GC=F": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/GC=F"), "tv": _tv("COMEX:GC1!")},
+    "CL=F": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/CL=F"), "tv": _tv("NYMEX:CL1!")},
+    "TWD=X": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/USDTWD=X"), "tv": _tv("FX_IDC:USDTWD")},
 }
 KINDS = {"^TWII": "tw", "TX": "twfut", "TXALL": "twfut", "GC=F": "24h", "CL=F": "24h", "TWD=X": "24h"}
 
@@ -164,15 +164,16 @@ def twse_turnover() -> dict[str, Any] | None:
         series = []
         for row in rows:
             y, mo, d = str(row[0]).split("/")
-            series.append((f"{int(y) + 1911}-{mo}-{d}", int(str(row[2]).replace(",", "")) / 1e8))
+            idx = num(row[4]) if len(row) > 4 else None  # 發行量加權股價指數（證交所公布收盤）
+            series.append((f"{int(y) + 1911}-{mo}-{d}", int(str(row[2]).replace(",", "")) / 1e8, idx))
         series.sort()
         if len(series) < 21:
             raise ValueError("成交金額歷史不足 21 日")
-        prior = [v for _, v in series[-21:-1] if v > 0]
+        prior = [v for _, v, _i in series[-21:-1] if v > 0]
         if not prior or series[-1][1] <= 0:
             raise ValueError("成交金額數值異常")
         return {"date": series[-1][0], "amount_yi": round(series[-1][1], 1),
-                "ratio": series[-1][1] / (sum(prior) / len(prior))}
+                "ratio": series[-1][1] / (sum(prior) / len(prior)), "index_close": series[-1][2]}
     except Exception as exc:
         print(f"加權指數成交金額抓取失敗：{exc}")
         return None
@@ -340,6 +341,7 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
     last_date = pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d")
     if override and override.get("date") == last_date and not intraday:  # 加權指數：改用證交所成交金額
         vol_ratio, volume, unit = override["ratio"], override["amount_yi"], "億元"
+        volume_note = "證交所每日市場成交資訊口徑"
 
     if close < support:
         text, level = ("盤中低於近 60 日支撐，待收盤確認" if is_open else "收盤低於近 60 日支撐，留意後續是否站回"), "break"
@@ -455,10 +457,16 @@ def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
             "weekly":t.get("weekly",{}).get("trend","資料不足"),"monthly":t.get("monthly",{}).get("trend","資料不足"),
             "rsi14":t.get("rsi14"),"macd_direction":t.get("macd",{}).get("direction"),
             "momentum20":t.get("momentum20"),"stale":bool(item.get("stale")),
-            "source":item.get("source","公開日線行情")})
+            "source":item.get("source","公開日線行情"),
+            "intraday":bool(item.get("captured_open")),  # 最新一根是盤中抓的，尚未收盤
+            "ma20":t.get("ma20"),"ma60":t.get("ma60"),
+            "vs_ma20":round((item["close"]/t["ma20"]-1)*100,1) if item.get("close") and t.get("ma20") else None,
+            "vs_ma60":round((item["close"]/t["ma60"]-1)*100,1) if item.get("close") and t.get("ma60") else None,
+            "crosscheck":item.get("crosscheck")})
     dates=[x["date"] for x in assets if x.get("date")]
     return {"risk_score":risk,"risk_level":level,"summary":summary,"coverage":len(scores),
             "coverage_total":len(core_symbols),"scored_indices":scores,"assets":assets,
+            "includes_intraday":any(bool(x.get("captured_open")) for x in core),
             "updated":max(dates) if dates else None,
             "method":"四個主要指數等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"}
 
@@ -507,6 +515,18 @@ def load_previous() -> dict[str, Any]:
             return data if isinstance(data, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def crosscheck_close(item: dict[str, Any], turnover: dict[str, Any] | None) -> dict[str, Any]:
+    """加權指數：拿 Yahoo 收盤價和證交所公布的收盤比對（只在收盤後、日期相同時比）。差距超過 0.05% 標示異常。"""
+    if item.get("error") or item.get("stale") or not turnover or turnover.get("index_close") is None:
+        return {"status": "unavailable"}
+    if item.get("captured_open") or item.get("date") != turnover.get("date"):
+        return {"status": "pending"}  # 盤中或證交所資料還沒更新到同一天
+    official = float(turnover["index_close"])
+    diff = (float(item["close"]) / official - 1) * 100
+    return {"status": "ok" if abs(diff) <= 0.05 else "mismatch", "official": round(official, 2),
+            "diff_pct": round(diff, 3), "date": item.get("date")}
 
 
 def should_fetch(old: dict[str, Any] | None, kind: str, mkt_open: bool, manual: bool, post_close: bool) -> bool:
@@ -577,6 +597,8 @@ def main(now_utc: dt.datetime | None = None) -> None:
                 else:
                     item = {"sym": sym, "name": name, "error": str(exc), "stale": True}
                 print(f"[{sym}] 更新失敗：{exc}")
+        if sym == "^TWII":
+            item["crosscheck"] = crosscheck_close(item, turnover)
         items.append(item)
         if sym == "^TWII":  # 台指期放在加權指數後面
             items.extend(fut_items)
