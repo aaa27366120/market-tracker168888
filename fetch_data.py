@@ -55,15 +55,15 @@ def _tv(s: str) -> str:
 # 卡片連結。代碼未逐一實測，台指期的 Yahoo 連結最不確定，請點過確認。
 _TXL = {"yahoo": "https://tw.stock.yahoo.com/future/WTX%26", "tv": _tv("TAIFEX:TX1!")}
 LINKS = {
-    "^TWII": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5ETWII"), "tv": _tv("TWSE:TAIEX")},
+    "^TWII": {"yahoo": "https://tw.stock.yahoo.com/quote/%5ETWII", "tv": _tv("TWSE:TAIEX")},
     "TX": _TXL, "TXALL": _TXL,
-    "^GSPC": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EGSPC"), "tv": _tv("SP:SPX")},
-    "^IXIC": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EIXIC"), "tv": _tv("NASDAQ:IXIC")},
-    "^DJI": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EDJI"), "tv": _tv("DJ:DJI")},
-    "^SOX": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5ESOX"), "tv": _tv("NASDAQ:SOX")},
-    "GC=F": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/GC=F"), "tv": _tv("COMEX:GC1!")},
-    "CL=F": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/CL=F"), "tv": _tv("NYMEX:CL1!")},
-    "TWD=X": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/USDTWD=X"), "tv": _tv("FX_IDC:USDTWD")},
+    "^GSPC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EGSPC", "tv": _tv("SP:SPX")},
+    "^IXIC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EIXIC", "tv": _tv("NASDAQ:IXIC")},
+    "^DJI": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EDJI", "tv": _tv("DJ:DJI")},
+    "^SOX": {"yahoo": "https://tw.stock.yahoo.com/quote/%5ESOX", "tv": _tv("NASDAQ:SOX")},
+    "GC=F": {"yahoo": "https://tw.stock.yahoo.com/quote/GC=F", "tv": _tv("COMEX:GC1!")},
+    "CL=F": {"yahoo": "https://tw.stock.yahoo.com/quote/CL=F", "tv": _tv("NYMEX:CL1!")},
+    "TWD=X": {"yahoo": "https://tw.stock.yahoo.com/quote/USDTWD=X", "tv": _tv("FX_IDC:USDTWD")},
 }
 KINDS = {"^TWII": "tw", "TX": "twfut", "TXALL": "twfut", "GC=F": "24h", "CL=F": "24h", "TWD=X": "24h"}
 
