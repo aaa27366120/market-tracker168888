@@ -1,0 +1,36 @@
+name: market-data-tests
+on:
+  pull_request:
+    paths:
+      - "fetch_data.py"
+      - "docs/index.html"
+      - "tests/**"
+      - ".github/workflows/market-data-tests.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install pandas requests pytest
+      - name: Compile Python
+        run: python -m py_compile fetch_data.py
+      - name: Unit tests
+        run: PYTHONPATH=. pytest -q
+      - name: Validate HTML script syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("docs/index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+          assert scripts, "No inline script found"
+          Path("/tmp/site.js").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/site.js

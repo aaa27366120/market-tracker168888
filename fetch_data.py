@@ -6,6 +6,7 @@ workflow run is not treated as proof that every source returned fresh data.
 from __future__ import annotations
 
 import datetime as dt
+import csv
 import html as html_lib
 import io
 import json
@@ -42,6 +43,7 @@ STOOQ = {
 SUPPORT_DAYS, NEAR, FAR = 60, 2.0, 5.0
 FUT_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"  # 期交所開放資料：期貨每日交易行情（只提供最新一日）
 TWSE_TURNOVER_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK"  # 證交所：每日市場成交資訊
+TWSE_INTRADAY_URL = "https://www.twse.com.tw/exchangeReport/MI_5MINS_INDEX"  # 證交所：加權指數每 5 秒資料
 
 
 NY = ZoneInfo("America/New_York")
@@ -53,12 +55,12 @@ def _yf(t: str) -> str:
 def _tv(s: str) -> str:
     return "https://www.tradingview.com/chart/?symbol=" + quote(s, safe="")
 
-# 卡片連結。代碼未逐一實測，台指期的 Yahoo 連結最不確定，請點過確認。
-_TV_TXF = "https://tw.tradingview.com/chart/?symbol=TAIFEX%3ATXF1%21"  # 台指期連續合約 K 線（通用網址）
+# 卡片外部行情連結：日盤、夜盤分開，夜盤另提供 TradingView 連續合約 K 線。
+_TV_TXF = "https://tw.tradingview.com/chart/J8yYzCyl/?symbol=TAIFEX%3ATXF1%21"
 LINKS = {
     "^TWII": {"yahoo": "https://tw.stock.yahoo.com/quote/%5ETWII", "tv": _tv("TWSE:TAIEX")},
-    "TX": {"wantgoo": "https://www.wantgoo.com/futures/wtx&"},
-    "TXALL": {"yahoo": "https://tw.stock.yahoo.com/future/WTX&", "tv": _TV_TXF},
+    "TX": {"cmoney_day": "https://www.cmoney.tw/forum/futures/TXF1"},
+    "TXALL": {"cmoney_night": "https://www.cmoney.tw/forum/futures/TXF1?s=p", "tv": _TV_TXF},
     "^GSPC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EGSPC", "tv": _tv("SP:SPX")},
     "^IXIC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EIXIC", "tv": _tv("NASDAQ:IXIC")},
     "^DJI": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EDJI", "tv": _tv("DJ:DJI")},
@@ -154,31 +156,95 @@ def judge(close: float, support: float, dist: float, vr: float | None) -> tuple[
 
 
 def twse_turnover() -> dict[str, Any] | None:
-    """加權指數用「成交金額」算量比（Yahoo 的指數成交量不可靠）。失敗回傳 None。"""
+    """取得證交所每日成交金額與加權指數正式收盤值。"""
     try:
         first = dt.datetime.now(TZ_TAIPEI).replace(day=1)
         months = [(first - dt.timedelta(days=1)).replace(day=1), first]
         rows = []
         for m in months:
-            r = retry(requests.get, TWSE_TURNOVER_URL, params={"date": m.strftime("%Y%m01"), "response": "json"}, timeout=20)
+            r = retry(requests.get, TWSE_TURNOVER_URL,
+                      params={"date": m.strftime("%Y%m01"), "response": "json"},
+                      timeout=20)
             r.raise_for_status()
-            rows += r.json().get("data") or []
+            payload = r.json()
+            if payload.get("stat") not in (None, "OK"):
+                raise ValueError(f"證交所回應狀態：{payload.get('stat')}")
+            rows += payload.get("data") or []
         series = []
         for row in rows:
+            if len(row) < 5:
+                continue
             y, mo, d = str(row[0]).split("/")
-            idx = num(row[4]) if len(row) > 4 else None  # 發行量加權股價指數（證交所公布收盤）
-            series.append((f"{int(y) + 1911}-{mo}-{d}", int(str(row[2]).replace(",", "")) / 1e8, idx))
+            date = f"{int(y) + 1911}-{mo}-{d}"
+            amount = num(row[2])
+            idx = num(row[4])
+            if amount is not None and idx is not None:
+                series.append((date, amount / 1e8, idx))
         series.sort()
-        if len(series) < 21:
-            raise ValueError("成交金額歷史不足 21 日")
-        prior = [v for _, v, _i in series[-21:-1] if v > 0]
+        if len(series) < 2:
+            raise ValueError("證交所成交金額或指數收盤資料不足")
+        prior = [v for _, v, _ in series[-21:-1] if v > 0]
         if not prior or series[-1][1] <= 0:
             raise ValueError("成交金額數值異常")
-        return {"date": series[-1][0], "amount_yi": round(series[-1][1], 1),
-                "ratio": series[-1][1] / (sum(prior) / len(prior)), "index_close": series[-1][2]}
+        return {
+            "date": series[-1][0],
+            "amount_yi": round(series[-1][1], 1),
+            "ratio": series[-1][1] / (sum(prior) / len(prior)),
+            "index_close": series[-1][2],
+            "previous_index_close": series[-2][2],
+            "source": "證交所 FMTQIK",
+        }
     except Exception as exc:
-        print(f"加權指數成交金額抓取失敗：{exc}")
+        print(f"加權指數成交金額／正式收盤價抓取失敗：{exc}")
         return None
+
+
+def parse_twse_intraday_csv(raw: str, expected_date: str) -> dict[str, Any]:
+    """解析證交所 MI_5MINS_INDEX CSV，回傳當日最後一筆加權指數快照。"""
+    rows = list(csv.reader(io.StringIO(raw.lstrip("\ufeff"))))
+    header_idx = None
+    time_col = index_col = None
+    for i, row in enumerate(rows):
+        normalized = [str(x).strip().replace("=", "") for x in row]
+        if "時間" in normalized:
+            time_col = normalized.index("時間")
+            candidates = [j for j, value in enumerate(normalized)
+                          if "發行量加權股價指數" in value or value == "加權指數"]
+            if candidates:
+                header_idx, index_col = i, candidates[0]
+                break
+    if header_idx is None or time_col is None or index_col is None:
+        raise ValueError("證交所盤中 CSV 欄位格式不符")
+    latest = None
+    for row in rows[header_idx + 1:]:
+        if len(row) <= max(time_col, index_col):
+            continue
+        clock = str(row[time_col]).strip().replace("=", "")
+        price = num(row[index_col])
+        if not re.fullmatch(r"\d{2}:\d{2}(?::\d{2})?", clock) or price is None or price <= 0:
+            continue
+        latest = {"date": expected_date, "time": clock[:8], "price": price}
+    if latest is None:
+        raise ValueError("證交所盤中資料沒有有效指數紀錄")
+    return latest
+
+
+def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
+    """取得證交所加權指數盤中快照；呼叫端負責保留最後成功資料與失敗狀態。"""
+    date = now.strftime("%Y%m%d")
+    response = retry(
+        requests.get, TWSE_INTRADAY_URL,
+        params={"response": "csv", "date": date},
+        headers={"User-Agent": "Mozilla/5.0 market-tracker/1.0"},
+        timeout=25,
+    )
+    response.raise_for_status()
+    quote = parse_twse_intraday_csv(response.text, now.strftime("%Y-%m-%d"))
+    quote_time = dt.datetime.strptime(quote["time"], "%H:%M:%S" if len(quote["time"]) == 8 else "%H:%M").time()
+    if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
+        raise ValueError(f"證交所最後一筆資料時間不在正常交易時段：{quote['time']}")
+    return {**quote, "source": "證交所 MI_5MINS_INDEX", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+
 
 
 # ---------- 台指期（期交所開放資料；欄位名稱未實測，已做容錯） ----------
@@ -187,6 +253,19 @@ def num(x: Any) -> float | None:
         return float(re.sub(r"[,%▼▲\s]", "", str(x)))
     except ValueError:
         return None
+
+
+def signed_num(x: Any) -> float | None:
+    """解析期交所漲跌幅；向下箭頭代表負值，不能被一般數字清理器吃掉方向。"""
+    raw = str(x or "").strip()
+    value = num(raw)
+    if value is None:
+        return None
+    if "▼" in raw:
+        return -abs(value)
+    if "▲" in raw:
+        return abs(value)
+    return value
 
 
 def pick(r: dict[str, Any], *keys: str) -> Any:
@@ -212,7 +291,7 @@ def tx_rows() -> dict[str, dict[str, dict[str, Any]]]:
         sess = str(pick(r, "TradingSession", "交易時段") or "")
         k = "night" if ("盤後" in sess or "after" in sess.lower()) else "day"
         row = {"m": m, "high": num(pick(r, "High", "最高價")), "low": num(pick(r, "Low", "最低價")),
-               "last": num(pick(r, "Last", "最後成交價")), "chg_pct": num(pick(r, "%", "漲跌%")),
+               "last": num(pick(r, "Last", "最後成交價")), "chg_pct": signed_num(pick(r, "%", "漲跌%")),
                "vol": num(pick(r, "Volume", "成交量")), "oi": num(pick(r, "OpenInterest", "未沖銷契約量"))}
         cur = by.setdefault(d, {}).get(k)
         if cur is None or m < cur["m"]:
@@ -223,25 +302,30 @@ def tx_rows() -> dict[str, dict[str, dict[str, Any]]]:
 
 
 def fut_records(by: dict) -> dict[str, list[dict[str, Any]]]:
-    """台指期=一般盤；台指期（全）=盤後+一般合併（高低取極值、量相加，收盤取一般盤收盤）。"""
+    """台指期=只取一般盤；台指期（全）=只取夜盤，絕不合併兩個時段。"""
     out: dict[str, list[dict[str, Any]]] = {"TX": [], "TXALL": []}
-    for d, s_ in sorted(by.items()):
-        day, night = s_.get("day"), s_.get("night")
-        if not day or day["last"] is None:
-            continue
-        base = {"date": f"{d[:4]}-{d[4:6]}-{d[6:]}", "m": day["m"], "close": day["last"],
-                "oi": day["oi"], "chg_pct": day["chg_pct"]}
-        out["TX"].append({**base, "high": day["high"], "low": day["low"], "vol": day["vol"]})
-        parts = [x for x in (night, day) if x]
-        hs = [x["high"] for x in parts if x["high"] is not None]
-        ls = [x["low"] for x in parts if x["low"] is not None]
-        out["TXALL"].append({**base, "high": max(hs) if hs else None, "low": min(ls) if ls else None,
-                             "vol": sum(x["vol"] or 0 for x in parts)})
+    for d, sessions in sorted(by.items()):
+        day, night = sessions.get("day"), sessions.get("night")
+        if day and day.get("last") is not None:
+            out["TX"].append({
+                "date": f"{d[:4]}-{d[4:6]}-{d[6:]}",
+                "m": day["m"], "close": day["last"], "oi": day.get("oi"),
+                "chg_pct": day.get("chg_pct"), "high": day.get("high"),
+                "low": day.get("low"), "vol": day.get("vol"), "session": "day",
+            })
+        if night and night.get("last") is not None:
+            out["TXALL"].append({
+                "date": f"{d[:4]}-{d[4:6]}-{d[6:]}",
+                "m": night["m"], "close": night["last"], "oi": night.get("oi"),
+                "chg_pct": night.get("chg_pct"), "high": night.get("high"),
+                "low": night.get("low"), "vol": night.get("vol"), "session": "night",
+            })
     return out
 
 
+
 # ---------- 網頁報價（第三方網頁，非官方；可一鍵關閉） ----------
-ENABLE_WEB_QUOTES = True  # 改成 False，或在環境變數設 WEB_QUOTES=0，就完全不抓網頁報價，只用官方資料
+ENABLE_WEB_QUOTES = False  # 第三方網頁解析不穩定；期貨行情僅採期交所官方資料
 WEB_SITES = {
     "TX": {"name": "玩股網", "url": "https://www.wantgoo.com/futures/wtx&"},       # 台指期（日盤）
     "TXALL": {"name": "Yahoo 奇摩", "url": "https://tw.stock.yahoo.com/future/WTX&"},  # 台指期（含夜盤）
@@ -372,84 +456,80 @@ def quote_age_hours(qt: str, now: dt.datetime | None) -> float:
 def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None, ok: bool,
              web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> dict[str, Any]:
     if not hist:
-        return {"sym": sym, "name": name, "error": "歷史資料累積中，之後每天會自動增加", "stale": True}
-    last, prior = hist[-1], hist[:-1][-SUPPORT_DAYS:]
+        return {"sym": sym, "name": name, "error": "尚無可用的期交所官方資料",
+                "stale": True, "data_status": "unavailable"}
+    last = hist[-1]
+    prior = hist[:-1][-SUPPORT_DAYS:]
     lows = [x["low"] for x in prior if x.get("low") is not None]
     vols = [x["vol"] for x in prior[-20:] if x.get("vol")]
-    q = (web or {}).get("quote")
-    att = (web or {}).get("last_attempt") or {}
-    # 網頁報價超過 36 小時就不再使用（例如連續好幾天抓不到），改回官方資料
-    used_web = bool(q) and not live and web_newer(sym, q, last["date"]) and quote_age_hours(q["quote_time"], now) <= 36
-    fresh = bool(live) or used_web  # 顯示的價格比官方最新日盤收盤更新
-    price, chg, pdate = last["close"], last["chg_pct"], last["date"]
-    src, ptime = "期交所官方・日盤收盤", last["date"][5:]
-    if live:
-        price, chg, pdate = live[1]["last"], live[1]["chg_pct"], live[0]
-        src, ptime = "期交所官方・夜盤收盤", live[0][5:]
-    elif used_web:
-        price, chg, pdate = q["price"], q.get("chg_pct"), q["quote_time"][:10]
-        src, ptime = f"網頁報價・{q['source']}", f"{q['quote_time'][5:10]} {q['quote_time'][11:16]}"
-    it: dict[str, Any] = {
-        "sym": sym, "name": name, "date": pdate, "close": price, "chg": chg, "oi": last["oi"],
-        "volume": last["vol"], "volume_unit": "口", "support": None, "dist": None, "vol_ratio": None,
-        "volume_status": "累積中", "level": "ok", "stale": not ok, "history_days": len(hist),
-        "spark": [x["close"] for x in hist[-SUPPORT_DAYS:]],
-        "price_source": src, "price_time": ptime, "web_status": att.get("status"),
-        "session": "網頁報價" if used_web else "官方資料", "session_class": "open" if used_web else "closed",
+    is_night = sym == "TXALL"
+    session_text = "最近夜盤收盤" if is_night else "最近日盤收盤"
+    if is_night and now is not None:
+        local_time = now.timetz().replace(tzinfo=None)
+        if local_time >= dt.time(15, 0) or local_time < dt.time(5, 0):
+            session_text = "夜盤時段"
+    item = {
+        "sym": sym, "name": "台指期（全）・夜盤" if is_night else "台指期（近月）・日盤",
+        "date": last["date"], "close": last["close"], "chg": last.get("chg_pct"),
+        "oi": last.get("oi"), "volume": last.get("vol"), "volume_unit": "口",
+        "support": None, "dist": None, "vol_ratio": None,
+        "volume_status": "累積中", "level": "ok", "stale": not ok,
+        "history_days": len(hist), "spark": [x["close"] for x in hist[-SUPPORT_DAYS:]],
+        "price_source": "期交所官方・夜盤" if is_night else "期交所官方・日盤",
+        "price_time": last["date"], "session": session_text,
+        "session_class": "open" if session_text == "夜盤時段" else "closed",
+        "checked_at": now.strftime("%Y-%m-%d %H:%M") if now is not None else None,
+        "data_status": "success" if ok else "failed",
+        "last_success_date": last["date"],
     }
-    if fresh:
-        it["volume_note"] = f"{last['date'][5:]} 官方"
-        if sym == "TXALL":  # 夜盤（或盤後）價格對最近一個日盤收盤的差
-            it["vs_day_pts"] = round(price - last["close"], 1)
-            it["vs_day_pct"] = round((price / last["close"] - 1) * 100, 2)
     if len(lows) >= 5:
-        it["support"] = min(lows)
-        it["dist"] = round((price / it["support"] - 1) * 100, 1)
-        if vols and last["vol"] and not fresh:
-            it["vol_ratio"] = round(last["vol"] / (sum(vols) / len(vols)), 2)
-            it["volume_status"] = "有效"
-        elif fresh:
-            it["volume_status"] = "盤中不顯示"
-        it["text"], it["level"] = judge(price, it["support"], it["dist"], it["vol_ratio"])
+        item["support"] = min(lows)
+        item["dist"] = round((last["close"] / item["support"] - 1) * 100, 1)
+        if vols and last.get("vol") and not item["stale"]:
+            item["vol_ratio"] = round(last["vol"] / (sum(vols) / len(vols)), 2)
+            item["volume_status"] = "有效"
+        elif item["stale"]:
+            item["volume_status"] = "資料更新失敗"
+        else:
+            item["volume_status"] = "盤中不顯示"
+        item["text"], item["level"] = judge(last["close"], item["support"], item["dist"], item["vol_ratio"])
     else:
-        it["text"] = f"歷史資料累積中（{len(hist)}/60 天），滿 5 天後開始顯示支撐"
-    if not ok and not used_web:
-        it["text"] = f"期交所更新失敗，顯示舊資料（{last['date']}）"
-    if sym == "TX" and q and not used_web and q["quote_time"][:10] == last["date"] and q["quote_time"][11:16] >= "13:45":
-        diff = (q["price"] / last["close"] - 1) * 100  # 收盤後：網頁報價 vs 期交所官方收盤
-        it["crosscheck"] = {"status": "ok" if abs(diff) <= 0.05 else "mismatch", "official": last["close"],
-                            "diff_pct": round(diff, 3), "date": last["date"], "source": "期交所"}
-    if used_web and att.get("status") not in (None, "ok") and str(att.get("ts", "")) > q["quote_time"]:
-        it["web_note"] = (f"最近一次網頁報價抓取失敗（{att.get('reason') or att.get('status')}），"
-                          f"目前顯示的是 {q['quote_time'][5:]} 的報價。")
-    elif not used_web and not live and att.get("status") not in (None, "ok") and att.get("ts", "")[:10] >= last["date"]:
-        it["web_note"] = (f"網頁報價暫時取得失敗（{att.get('reason') or att.get('status')}），"
-                          f"改顯示期交所官方資料（{last['date']}）。官方資料只在收盤後更新。")
-    return it
+        item["text"] = f"歷史資料累積中（{len(hist)}/60 天）"
+    if not ok:
+        item["text"] = f"期交所資料更新失敗，顯示舊資料（最後成功日期：{last['date']}）"
+        item["fetch_error"] = "本次期交所官方資料未成功取得"
+    if is_night:
+        item["session_note"] = (
+            "此卡只顯示期交所已公布的最近夜盤資料，不含日盤；"
+            "資料日期是交易資料日期，擷取時間另列，夜盤交易中不代表即時逐筆報價。"
+        )
+    return item
 
 
 def update_futures(hist: dict[str, Any], fetch: bool = True,
                    web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
     hist = {k: list(v) for k, v in (hist or {}).items()}
-    ok, live = True, None
+    # 舊版 TXALL 是日夜盤混合值，沒有 session 標記，不能再當作夜盤歷史。
+    hist["TXALL"] = [x for x in hist.get("TXALL", []) if x.get("session") == "night"]
+    ok = True
     try:
         by = tx_rows() if fetch else {}
         ok = bool(by) or not fetch
-        for k, recs in fut_records(by).items():  # 以日期合併累積（API 只給最新一日）
-            merged = {x["date"]: x for x in hist.get(k, [])}
-            merged.update({x["date"]: x for x in recs})
-            hist[k] = [merged[d] for d in sorted(merged)][-130:]
         if by:
-            ld = max(by)
-            if "night" in by[ld] and "day" not in by[ld] and by[ld]["night"]["last"]:
-                live = (f"{ld[:4]}-{ld[4:6]}-{ld[6:]}", by[ld]["night"])
+            records = fut_records(by)
+            for key in ("TX", "TXALL"):
+                merged = {x["date"]: x for x in hist.get(key, [])}
+                merged.update({x["date"]: x for x in records.get(key, [])})
+                hist[key] = [merged[d] for d in sorted(merged)][-130:]
     except Exception as exc:
         ok = False
         print(f"台指期更新失敗：{exc}")
-    web = web or {}
-    items = [fut_item("TX", "台指期（近月）", hist.get("TX", []), None, ok, web.get("TX"), now),
-             fut_item("TXALL", "台指期（全）", hist.get("TXALL", []), live, ok, web.get("TXALL"), now)]
+    items = [
+        fut_item("TX", "台指期（近月）", hist.get("TX", []), None, ok, None, now),
+        fut_item("TXALL", "台指期（全）・夜盤", hist.get("TXALL", []), None, ok, None, now),
+    ]
     return hist, items
+
 
 
 def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None = None,
@@ -474,6 +554,27 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
         raise RuntimeError("；".join(errors) or "沒有可用行情來源")
 
     df = df.sort_index()
+    yahoo_source_date = pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d")
+    yahoo_source_close = float(df["Close"].iloc[-1])
+    # 收盤後以證交所 FMTQIK 的正式指數收盤價覆蓋 Yahoo 日線；技術指標也使用同一正式收盤值。
+    if sym == "^TWII" and override and override.get("index_close") is not None and override.get("date"):
+        official_date = pd.Timestamp(override["date"])
+        if getattr(df.index, "tz", None) is not None:
+            official_date = official_date.tz_localize(df.index.tz)
+        official_day = official_date.date()
+        latest_day = pd.Timestamp(df.index[-1]).date()
+        if official_day >= latest_day:
+            date_matches = [pd.Timestamp(x).date() == official_day for x in df.index]
+            if any(date_matches):
+                df.loc[date_matches, "Close"] = float(override["index_close"])
+                df.loc[date_matches, "Low"] = float(override["index_close"])
+            else:
+                new_row = df.iloc[-1].copy()
+                new_row["Close"] = float(override["index_close"])
+                new_row["Low"] = float(override["index_close"])
+                new_row["Volume"] = float("nan")
+                df.loc[official_date] = new_row
+                df = df.sort_index()
     last, prev = df.iloc[-1], df.iloc[-2]
     hist = df.iloc[-1 - SUPPORT_DAYS:-1]
     support = float(hist["Low"].min())
@@ -542,7 +643,12 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
         "text": text, "level": level,
         "spark": [round(float(x), 2) for x in df["Close"].tail(60)],
         "stale": False,
-        "source": provider or "公開日線行情",
+        "source": ("證交所官方收盤（FMTQIK）" if sym == "^TWII" and override
+                   and override.get("date") == pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d")
+                   else provider or "公開日線行情"),
+        "source_date": pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d"),
+        "yahoo_close": round(yahoo_source_close, 2) if sym == "^TWII" else None,
+        "yahoo_date": yahoo_source_date if sym == "^TWII" else None,
     }
     result["technical"] = technical_analysis(df)
     return result
@@ -596,6 +702,7 @@ def technical_analysis(df: pd.DataFrame) -> dict[str, Any]:
 def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
     core_symbols={"^TWII","^GSPC","^IXIC","^SOX"}
     core=[x for x in items if x.get("sym") in core_symbols and not x.get("stale")
+          and not x.get("technical_stale")
           and x.get("technical",{}).get("status")=="success"]
     scores=[]
     for item in core:
@@ -615,13 +722,15 @@ def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
     for item in items:
         t=item.get("technical")
         if not t or t.get("status")!="success": continue
-        assets.append({"sym":item.get("sym"),"name":item.get("name"),"date":item.get("date"),
+        assets.append({"sym":item.get("sym"),"name":item.get("name"),
+            "date":item.get("technical_date") if item.get("technical_stale") else item.get("date"),
             "close":item.get("close"),"chg":item.get("chg"),"trend":t.get("daily",{}).get("trend","資料不足"),
             "weekly":t.get("weekly",{}).get("trend","資料不足"),"monthly":t.get("monthly",{}).get("trend","資料不足"),
             "rsi14":t.get("rsi14"),"macd_direction":t.get("macd",{}).get("direction"),
-            "momentum20":t.get("momentum20"),"stale":bool(item.get("stale")),
+            "momentum20":t.get("momentum20"),"stale":bool(item.get("stale") or item.get("technical_stale")),
             "source":item.get("source","公開日線行情"),
             "intraday":bool(item.get("captured_open")),  # 最新一根是盤中抓的，尚未收盤
+            "technical_date":item.get("technical_date"),
             "ma20":t.get("ma20"),"ma60":t.get("ma60"),
             "vs_ma20":round((item["close"]/t["ma20"]-1)*100,1) if item.get("close") and t.get("ma20") else None,
             "vs_ma60":round((item["close"]/t["ma60"]-1)*100,1) if item.get("close") and t.get("ma60") else None,
@@ -684,10 +793,10 @@ def crosscheck_close(item: dict[str, Any], turnover: dict[str, Any] | None) -> d
     """加權指數：拿 Yahoo 收盤價和證交所公布的收盤比對（只在收盤後、日期相同時比）。差距超過 0.05% 標示異常。"""
     if item.get("error") or item.get("stale") or not turnover or turnover.get("index_close") is None:
         return {"status": "unavailable"}
-    if item.get("captured_open") or item.get("date") != turnover.get("date"):
-        return {"status": "pending"}  # 盤中或證交所資料還沒更新到同一天
+    if item.get("captured_open") or item.get("yahoo_date") != turnover.get("date") or item.get("yahoo_close") is None:
+        return {"status": "pending"}  # Yahoo 與證交所資料尚未到同一交易日
     official = float(turnover["index_close"])
-    diff = (float(item["close"]) / official - 1) * 100
+    diff = (float(item["yahoo_close"]) / official - 1) * 100
     return {"status": "ok" if abs(diff) <= 0.05 else "mismatch", "official": round(official, 2),
             "diff_pct": round(diff, 3), "date": item.get("date")}
 
@@ -709,44 +818,34 @@ def main(now_utc: dt.datetime | None = None) -> None:
     now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
     now = now_utc.astimezone(TZ_TAIPEI)
     today = now.strftime("%Y-%m-%d")
-    manual = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"  # 手動執行：全部重抓
-    post_close = now.weekday() < 5 and now.time() >= dt.time(15, 30)     # 台股收盤後
-    pre_market = 5 <= now.hour < 9                                       # 台股開盤前（取夜盤最新價）
+    manual = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+    post_close = now.weekday() < 5 and now.time() >= dt.time(14, 0)
+    pre_market = 5 <= now.hour < 9
 
     def need(prev_date: str | None, allowed: bool) -> bool:
-        """證交所、期交所的盤後資料：只在允許時段抓；沒有舊資料或手動執行時一律抓；當天已有就不重抓。"""
         return manual or not prev_date or (allowed and prev_date != today)
 
     prev_turnover = previous.get("turnover")
-    turnover = twse_turnover() if need((prev_turnover or {}).get("date"), post_close) else prev_turnover
+    turnover_due = need((prev_turnover or {}).get("date"), post_close)
+    fetched_turnover = twse_turnover() if turnover_due else prev_turnover
+    turnover = fetched_turnover or prev_turnover
+    close_official_today = bool(turnover and turnover.get("date") == today)
+    close_fetch_failed = bool(turnover_due and not close_official_today)
+
     hist0 = previous.get("fut_hist", {})
-    last_fut = (hist0.get("TX") or [{}])[-1].get("date")
-    web_state = {k: dict(v) for k, v in (previous.get("fut_web") or {}).items()}
-    attempts: list[dict[str, Any]] = []
-    if web_enabled():
-        for sym in ("TX", "TXALL"):
-            st = web_state.setdefault(sym, {})
-            la = st.get("last_attempt") or {}
-            blocked_today = la.get("status") == "blocked" and str(la.get("ts", ""))[:10] == today
-            if not (manual or (web_due(sym, now) and not blocked_today)):
-                continue
-            if attempts:
-                time.sleep(PAUSE)
-            ref = next((x["close"] for x in reversed(hist0.get(sym) or []) if x["date"] < today), None)
-            quote_, att = scrape_quote(sym, now, ref)
-            attempts.append(att)
-            st["last_attempt"] = {k: att.get(k) for k in ("ts", "status", "reason", "http_status")}
-            if quote_:
-                st["quote"] = quote_
-            print(f"[網頁報價 {sym}] {att.get('status')} {att.get('reason') or att.get('price') or ''}")
-    fut_allowed = (now.weekday() < 5 and now.time() >= dt.time(14, 0)) or pre_market  # 日盤收盤後起嘗試抓官方
-    fut_hist, fut_items = update_futures(hist0, need(last_fut, fut_allowed), web_state, now)
+    fut_allowed = (now.weekday() < 5 and now.time() >= dt.time(14, 0)) or pre_market
+    # 日盤資料今天已更新，不代表稍後的夜盤也已更新；允許時段每次工作流程執行都重新查詢期交所。
+    fut_hist, fut_items = update_futures(hist0, manual or fut_allowed, now=now)
+
     prev_foreign = previous.get("foreign", [])
     if need(prev_foreign[-1].get("date") if prev_foreign else None, post_close):
         foreign, foreign_meta = foreign_flow(prev_foreign)
     else:
         foreign = prev_foreign
-        foreign_meta = previous.get("foreign_meta") or {"status": "success", "message": "沿用上一次收盤後資料"}
+        foreign_meta = previous.get("foreign_meta") or {
+            "status": "unavailable", "message": "尚無可用外資資料",
+            "source_date": None, "checked_at": now.strftime("%Y-%m-%d %H:%M"),
+        }
 
     items = []
     success_count = sum(1 for x in fut_items if not x.get("error") and not x.get("stale"))
@@ -757,8 +856,15 @@ def main(now_utc: dt.datetime | None = None) -> None:
         kind = market_kind(sym)
         mkt_open = is_market_open(kind, now_utc)
         old = old_by_symbol.get(sym)
-        if not should_fetch(old, kind, mkt_open, manual, post_close):
-            item = dict(old)  # 該市場沒開盤、且已有收盤資料：沿用，不發請求
+        force_twse_close_refresh = (
+            sym == "^TWII" and post_close and (
+                not old
+                or old.get("date") != today
+                or old.get("source") != "證交所官方收盤（FMTQIK）"
+            )
+        )
+        if not should_fetch(old, kind, mkt_open, manual or force_twse_close_refresh, post_close):
+            item = dict(old)
             success_count += 1
             print(f"[{sym}] 市場未開盤，沿用上次資料（{item.get('date')}）")
         else:
@@ -768,25 +874,103 @@ def main(now_utc: dt.datetime | None = None) -> None:
             try:
                 item = analyse(*symbol, override=turnover if sym == "^TWII" else None,
                                kind=kind, is_open=mkt_open)
-                item["captured_open"] = mkt_open  # 記錄這筆是不是盤中抓的，盤後要再補抓一次最終價
+                item["captured_open"] = mkt_open
+                item["data_status"] = "success"
+                item["last_success_date"] = item.get("date")
+                item["checked_at"] = now.strftime("%Y-%m-%d %H:%M")
                 success_count += 1
             except Exception as exc:
                 if old and old.get("date") and old.get("close") is not None:
                     item = dict(old)
                     item["stale"] = True
+                    item["data_status"] = "failed"
+                    item["checked_at"] = now.strftime("%Y-%m-%d %H:%M")
+                    item["last_success_date"] = old.get("date")
                     item["fetch_error"] = str(exc)
-                    item["text"] = f"行情更新失敗，顯示舊資料（{item['date']}）"
+                    item["text"] = f"行情更新失敗，顯示舊資料（最後成功日期：{old['date']}）"
                 else:
-                    item = {"sym": sym, "name": name, "error": str(exc), "stale": True}
+                    item = {"sym": sym, "name": name, "error": str(exc),
+                            "stale": True, "data_status": "failed",
+                            "checked_at": now.strftime("%Y-%m-%d %H:%M")}
                 print(f"[{sym}] 更新失敗：{exc}")
+
         if sym == "^TWII":
             item["crosscheck"] = crosscheck_close(item, turnover)
+            item["close_status"] = "success" if close_official_today else (
+                "failed" if close_fetch_failed else "pending")
+            item["close_checked_at"] = now.strftime("%Y-%m-%d %H:%M") if turnover_due else item.get("close_checked_at")
+            if close_official_today:
+                official_close = float(turnover["index_close"])
+                if item.get("date") != today or item.get("close") is None or abs(float(item.get("close", 0)) - official_close) > 0.005:
+                    old_technical_date = item.get("date")
+                    item["technical_stale"] = True
+                    item["technical_date"] = old_technical_date
+                    item.setdefault("name", "台灣加權指數")
+                    item.setdefault("spark", [])
+                    item.setdefault("support", None)
+                    item.setdefault("dist", None)
+                    item.setdefault("vol_ratio", None)
+                    item.setdefault("volume_status", "技術分析資料不足")
+                    item["close"] = round(official_close, 2)
+                    item["date"] = today
+                    previous_close = turnover.get("previous_index_close")
+                    item["chg"] = round((official_close / float(previous_close) - 1) * 100, 2) if previous_close else None
+                    item["stale"] = False
+                    item.pop("error", None)
+                    item["level"] = item.get("level") or "ok"
+                    item["text"] = "證交所正式收盤價已取得；技術指標沿用舊資料" if item["technical_stale"] else "證交所正式收盤價"
+                    item["last_success_date"] = today
+                    item["data_status"] = "partial"
+                    item["price_source"] = "證交所官方收盤（FMTQIK）"
+                    item["price_time"] = today
+                item["source"] = "證交所官方收盤（FMTQIK）"
+                item["close_status_note"] = (
+                    f"正式收盤價資料日期：{today}；" +
+                    (f"技術指標仍使用 {item.get('technical_date')} 的資料" if item.get("technical_stale") else "已使用官方收盤價更新技術分析")
+                )
+                item["live_status"] = "closed"
+            elif post_close:
+                item["close_status_note"] = (
+                    f"證交所當日正式收盤資料尚未取得；目前保留最後成功資料（{item.get('date', '未知')}）"
+                )
+                item["live_status"] = "close_pending"
+
+            # 每 30 分鐘工作流程執行時，另取證交所盤中指數；不覆寫日線技術分析。
+            if mkt_open:
+                try:
+                    live = fetch_twse_intraday(now)
+                    previous_close = None
+                    if turnover and turnover.get("date") == today:
+                        previous_close = turnover.get("previous_index_close")
+                    if previous_close is None and old and old.get("date") < today:
+                        previous_close = old.get("close")
+                    if previous_close is None and item.get("date") < today:
+                        previous_close = item.get("close")
+                    live_chg = ((live["price"] / previous_close) - 1) * 100 if previous_close else None
+                    item.update({
+                        "live_price": round(live["price"], 2),
+                        "live_chg": round(live_chg, 2) if live_chg is not None else None,
+                        "live_date": live["date"], "live_time": live["time"],
+                        "live_source": live["source"], "live_checked_at": live["checked_at"],
+                        "live_status": "success",
+                    })
+                except Exception as exc:
+                    old_live = old or {}
+                    if old_live.get("live_date") == today and old_live.get("live_price") is not None:
+                        for key in ("live_price", "live_chg", "live_date", "live_time", "live_source", "live_checked_at"):
+                            if key in old_live:
+                                item[key] = old_live[key]
+                    item["live_status"] = "failed"
+                    item["live_error"] = str(exc)
+                    item["live_checked_at"] = now.strftime("%Y-%m-%d %H:%M")
+                    print(f"[TWSE intraday] 更新失敗：{exc}")
+
         items.append(item)
-        if sym == "^TWII":  # 台指期放在加權指數後面
+        if sym == "^TWII":
             items.extend(fut_items)
 
-    for it in items:  # 市場狀態與看盤連結
-        if not it.get("error") and it.get("sym") not in ("TX", "TXALL"):  # 台指期的標籤由報價來源決定
+    for it in items:
+        if not it.get("error") and it.get("sym") not in ("TX", "TXALL"):
             it.update(session_fields(it.get("sym", ""), it.get("date"), now_utc))
         it["links"] = LINKS.get(it.get("sym"))
 
@@ -802,15 +986,15 @@ def main(now_utc: dt.datetime | None = None) -> None:
         "foreign_meta": foreign_meta,
         "turnover": turnover,
         "fut_hist": fut_hist,
-        "fut_web": web_state,
+        "fut_web": {},
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     temp_out = OUT + ".tmp"
     with open(temp_out, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
     os.replace(temp_out, OUT)
-    write_probe(attempts, data["updated"])
     print(f"完成 {data['updated']}；行情成功 {success_count}/{total}；外資狀態 {foreign_meta.get('status')}")
+
 
 
 if __name__ == "__main__":
