@@ -312,7 +312,7 @@ def fut_records(by: dict) -> dict[str, list[dict[str, Any]]]:
 
 
 # ---------- 網頁報價（第三方網頁，非官方；可一鍵關閉） ----------
-ENABLE_WEB_QUOTES = True  # 改成 False，或在環境變數設 WEB_QUOTES=0，就完全不抓網頁報價，只用官方資料
+ENABLE_WEB_QUOTES = False  # 第三方網頁解析不穩定；期貨行情僅採期交所官方資料
 WEB_SITES = {
     "TX": {"name": "玩股網", "url": "https://www.wantgoo.com/futures/wtx&"},       # 台指期（日盤）
     "TXALL": {"name": "Yahoo 奇摩", "url": "https://tw.stock.yahoo.com/future/WTX&"},  # 台指期（含夜盤）
@@ -465,6 +465,7 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
         "price_source": "期交所官方・夜盤" if is_night else "期交所官方・日盤",
         "price_time": last["date"], "session": session_text,
         "session_class": "open" if session_text == "夜盤時段" else "closed",
+        "checked_at": now.strftime("%Y-%m-%d %H:%M") if now is not None else None,
         "data_status": "success" if ok else "failed",
         "last_success_date": last["date"],
     }
@@ -828,7 +829,7 @@ def main(now_utc: dt.datetime | None = None) -> None:
         }
 
     items = []
-    success_count = 0
+    success_count = sum(1 for x in fut_items if not x.get("error") and not x.get("stale"))
     total = len(SYMBOLS) + len(fut_items)
     fetched_before = False
     for symbol in SYMBOLS:
@@ -843,7 +844,7 @@ def main(now_utc: dt.datetime | None = None) -> None:
                 or old.get("source") != "證交所官方收盤（FMTQIK）"
             )
         )
-        if not should_fetch(old, kind, mkt_open, manual, force_twse_close_refresh):
+        if not should_fetch(old, kind, mkt_open, manual or force_twse_close_refresh, post_close):
             item = dict(old)
             success_count += 1
             print(f"[{sym}] 市場未開盤，沿用上次資料（{item.get('date')}）")
