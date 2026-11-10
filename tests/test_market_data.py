@@ -37,9 +37,9 @@ def test_night_only_record_is_kept_without_day_record():
 def test_twse_intraday_csv_parser_uses_last_valid_taiex_row():
     raw = """每日收盤行情
 時間,發行量加權股價指數,電子類指數
-=09:00:00,42,500.10,1,200.00
-=09:00:05,42,501.20,1,201.00
-=09:00:10,42,502.30,1,202.00
+=09:00:00,"42,500.10","1,200.00"
+=09:00:05,"42,501.20","1,201.00"
+=09:00:10,"42,502.30","1,202.00"
 """
     parsed = parse_twse_intraday_csv(raw, "2026-11-10")
     assert parsed == {"date": "2026-11-10", "time": "09:00:10", "price": 42502.3}
