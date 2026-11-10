@@ -706,7 +706,8 @@ def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
     for item in items:
         t=item.get("technical")
         if not t or t.get("status")!="success": continue
-        assets.append({"sym":item.get("sym"),"name":item.get("name"),"date":item.get("date"),
+        assets.append({"sym":item.get("sym"),"name":item.get("name"),
+            "date":item.get("technical_date") if item.get("technical_stale") else item.get("date"),
             "close":item.get("close"),"chg":item.get("chg"),"trend":t.get("daily",{}).get("trend","資料不足"),
             "weekly":t.get("weekly",{}).get("trend","資料不足"),"monthly":t.get("monthly",{}).get("trend","資料不足"),
             "rsi14":t.get("rsi14"),"macd_direction":t.get("macd",{}).get("direction"),
@@ -886,8 +887,14 @@ def main(now_utc: dt.datetime | None = None) -> None:
                 official_close = float(turnover["index_close"])
                 if item.get("date") != today or item.get("close") is None or abs(float(item.get("close", 0)) - official_close) > 0.005:
                     old_technical_date = item.get("date")
-                    item["technical_stale"] = bool(item.get("technical"))
+                    item["technical_stale"] = True
                     item["technical_date"] = old_technical_date
+                    item.setdefault("name", "台灣加權指數")
+                    item.setdefault("spark", [])
+                    item.setdefault("support", None)
+                    item.setdefault("dist", None)
+                    item.setdefault("vol_ratio", None)
+                    item.setdefault("volume_status", "技術分析資料不足")
                     item["close"] = round(official_close, 2)
                     item["date"] = today
                     previous_close = turnover.get("previous_index_close")
@@ -897,7 +904,7 @@ def main(now_utc: dt.datetime | None = None) -> None:
                     item["level"] = item.get("level") or "ok"
                     item["text"] = "證交所正式收盤價已取得；技術指標沿用舊資料" if item["technical_stale"] else "證交所正式收盤價"
                     item["last_success_date"] = today
-                    item["data_status"] = "partial" if item["technical_stale"] else "success"
+                    item["data_status"] = "partial"
                     item["price_source"] = "證交所官方收盤（FMTQIK）"
                     item["price_time"] = today
                 item["source"] = "證交所官方收盤（FMTQIK）"
