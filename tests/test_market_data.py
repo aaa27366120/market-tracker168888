@@ -1,6 +1,6 @@
 import datetime as dt
 
-from fetch_data import fut_records, parse_twse_intraday_csv
+from fetch_data import fut_records, parse_twse_intraday_csv, signed_num
 
 
 def test_futures_night_and_day_are_separate():
@@ -43,3 +43,10 @@ def test_twse_intraday_csv_parser_uses_last_valid_taiex_row():
 """
     parsed = parse_twse_intraday_csv(raw, "2026-11-10")
     assert parsed == {"date": "2026-11-10", "time": "09:00:10", "price": 42502.3}
+
+
+
+def test_taifex_down_arrow_is_negative():
+    assert signed_num("▼0.85%") == -0.85
+    assert signed_num("▲0.35%") == 0.35
+    assert signed_num("-0.20%") == -0.2
