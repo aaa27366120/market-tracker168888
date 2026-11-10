@@ -686,6 +686,7 @@ def technical_analysis(df: pd.DataFrame) -> dict[str, Any]:
 def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
     core_symbols={"^TWII","^GSPC","^IXIC","^SOX"}
     core=[x for x in items if x.get("sym") in core_symbols and not x.get("stale")
+          and not x.get("technical_stale")
           and x.get("technical",{}).get("status")=="success"]
     scores=[]
     for item in core:
@@ -709,9 +710,10 @@ def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
             "close":item.get("close"),"chg":item.get("chg"),"trend":t.get("daily",{}).get("trend","資料不足"),
             "weekly":t.get("weekly",{}).get("trend","資料不足"),"monthly":t.get("monthly",{}).get("trend","資料不足"),
             "rsi14":t.get("rsi14"),"macd_direction":t.get("macd",{}).get("direction"),
-            "momentum20":t.get("momentum20"),"stale":bool(item.get("stale")),
+            "momentum20":t.get("momentum20"),"stale":bool(item.get("stale") or item.get("technical_stale")),
             "source":item.get("source","公開日線行情"),
             "intraday":bool(item.get("captured_open")),  # 最新一根是盤中抓的，尚未收盤
+            "technical_date":item.get("technical_date"),
             "ma20":t.get("ma20"),"ma60":t.get("ma60"),
             "vs_ma20":round((item["close"]/t["ma20"]-1)*100,1) if item.get("close") and t.get("ma20") else None,
             "vs_ma60":round((item["close"]/t["ma60"]-1)*100,1) if item.get("close") and t.get("ma60") else None,
@@ -881,8 +883,28 @@ def main(now_utc: dt.datetime | None = None) -> None:
                 "failed" if close_fetch_failed else "pending")
             item["close_checked_at"] = now.strftime("%Y-%m-%d %H:%M") if turnover_due else item.get("close_checked_at")
             if close_official_today:
+                official_close = float(turnover["index_close"])
+                if item.get("date") != today or item.get("close") is None or abs(float(item.get("close", 0)) - official_close) > 0.005:
+                    old_technical_date = item.get("date")
+                    item["technical_stale"] = bool(item.get("technical"))
+                    item["technical_date"] = old_technical_date
+                    item["close"] = round(official_close, 2)
+                    item["date"] = today
+                    previous_close = turnover.get("previous_index_close")
+                    item["chg"] = round((official_close / float(previous_close) - 1) * 100, 2) if previous_close else None
+                    item["stale"] = False
+                    item.pop("error", None)
+                    item["level"] = item.get("level") or "ok"
+                    item["text"] = "證交所正式收盤價已取得；技術指標沿用舊資料" if item["technical_stale"] else "證交所正式收盤價"
+                    item["last_success_date"] = today
+                    item["data_status"] = "partial" if item["technical_stale"] else "success"
+                    item["price_source"] = "證交所官方收盤（FMTQIK）"
+                    item["price_time"] = today
                 item["source"] = "證交所官方收盤（FMTQIK）"
-                item["close_status_note"] = f"已核對正式收盤價，資料日期：{today}"
+                item["close_status_note"] = (
+                    f"正式收盤價資料日期：{today}；" +
+                    (f"技術指標仍使用 {item.get('technical_date')} 的資料" if item.get("technical_stale") else "已使用官方收盤價更新技術分析")
+                )
                 item["live_status"] = "closed"
             elif post_close:
                 item["close_status_note"] = (
