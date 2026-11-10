@@ -22,7 +22,7 @@ jobs:
       - name: Compile Python
         run: python -m py_compile fetch_data.py
       - name: Unit tests
-        run: pytest -q
+        run: PYTHONPATH=. pytest -q
       - name: Validate HTML script syntax
         run: |
           python - <<'PY'
