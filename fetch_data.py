@@ -537,6 +537,8 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
         raise RuntimeError("；".join(errors) or "沒有可用行情來源")
 
     df = df.sort_index()
+    yahoo_source_date = pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d")
+    yahoo_source_close = float(df["Close"].iloc[-1])
     # 收盤後以證交所 FMTQIK 的正式指數收盤價覆蓋 Yahoo 日線；技術指標也使用同一正式收盤值。
     if sym == "^TWII" and override and override.get("index_close") is not None and override.get("date"):
         official_date = pd.Timestamp(override["date"])
@@ -628,6 +630,8 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
                    and override.get("date") == pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d")
                    else provider or "公開日線行情"),
         "source_date": pd.Timestamp(df.index[-1]).strftime("%Y-%m-%d"),
+        "yahoo_close": round(yahoo_source_close, 2) if sym == "^TWII" else None,
+        "yahoo_date": yahoo_source_date if sym == "^TWII" else None,
     }
     result["technical"] = technical_analysis(df)
     return result
@@ -769,10 +773,10 @@ def crosscheck_close(item: dict[str, Any], turnover: dict[str, Any] | None) -> d
     """加權指數：拿 Yahoo 收盤價和證交所公布的收盤比對（只在收盤後、日期相同時比）。差距超過 0.05% 標示異常。"""
     if item.get("error") or item.get("stale") or not turnover or turnover.get("index_close") is None:
         return {"status": "unavailable"}
-    if item.get("captured_open") or item.get("date") != turnover.get("date"):
-        return {"status": "pending"}  # 盤中或證交所資料還沒更新到同一天
+    if item.get("captured_open") or item.get("yahoo_date") != turnover.get("date") or item.get("yahoo_close") is None:
+        return {"status": "pending"}  # Yahoo 與證交所資料尚未到同一交易日
     official = float(turnover["index_close"])
-    diff = (float(item["close"]) / official - 1) * 100
+    diff = (float(item["yahoo_close"]) / official - 1) * 100
     return {"status": "ok" if abs(diff) <= 0.05 else "mismatch", "official": round(official, 2),
             "diff_pct": round(diff, 3), "date": item.get("date")}
 
@@ -832,7 +836,14 @@ def main(now_utc: dt.datetime | None = None) -> None:
         kind = market_kind(sym)
         mkt_open = is_market_open(kind, now_utc)
         old = old_by_symbol.get(sym)
-        if not should_fetch(old, kind, mkt_open, manual, post_close):
+        force_twse_close_refresh = (
+            sym == "^TWII" and post_close and (
+                not old
+                or old.get("date") != today
+                or old.get("source") != "證交所官方收盤（FMTQIK）"
+            )
+        )
+        if not should_fetch(old, kind, mkt_open, manual, force_twse_close_refresh):
             item = dict(old)
             success_count += 1
             print(f"[{sym}] 市場未開盤，沿用上次資料（{item.get('date')}）")
