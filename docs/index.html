@@ -135,11 +135,12 @@ function card(i){
   const sourceMeta=i.source?`<div class="meta"><span>${i.source}</span><span>資料日期 ${i.date||"未知"}</span></div>`:"";
   const closeMeta=i.close_status_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${i.close_status_note}</p>`:"";
   const analysisStale=i.technical_stale?`<p class="text" style="color:var(--break);font-size:.74rem">⚠ 技術指標沿用舊資料；原始日期：${i.technical_date||"未知"}</p>`:"";
+  const sessionNote=i.session_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${i.session_note}</p>`:"";
   const liveError=i.live_status==="failed"?`<p class="text" style="color:var(--break);font-size:.74rem">盤中資料更新失敗；最後成功時間：${i.live_date||"無"} ${i.live_time||""}；${i.live_error||""}</p>`:"";
   return `<div class="card"><div class="name">${i.name}${tag(i)}</div>
   <div class="pr"><span class="price">${f(shownPrice)}</span><span class="chg ${c}">${sg(shownChg)}</span></div>
   ${liveMeta}${sourceMeta}${i.price_source?`<div class="meta"><span>${i.price_source}</span><span>資料日期 ${i.price_time||i.date||"未知"}${i.checked_at?"・擷取 "+i.checked_at:""}</span></div>`:""}
-  ${closeMeta}${analysisStale}${liveError}
+  ${closeMeta}${analysisStale}${liveError}${sessionNote}
   <span class="chip ${i.level}">${LV[i.level]||"一般"}</span><p class="text">${i.text}</p>${i.stale?`<p class="text">⚠ 行情更新失敗，以下為舊資料；最後成功資料日期：${i.last_success_date||i.date||"未知"}</p>`:""}
   <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div>${row("對日盤收盤",i.vs_day_pts==null?null:(i.vs_day_pts>0?"+":"")+f(i.vs_day_pts,0)+" 點（"+sg(i.vs_day_pct)+"）")}${row("成交量",vol(i))}${row("收盤核對",xc(i))}${row("未平倉",i.oi==null?null:f(i.oi,0)+" 口")}${row("距季線",i.vs_ma60==null?null:sg(i.vs_ma60))}${row("一年高點回落",i.drawdown==null?null:f(i.drawdown,1)+"%")}${row("回落觀察",i.drawdown_status)}</div>
   ${spark(i.spark,i.support)}<div class="meta"><span>支撐 ${f(i.support)}</span><span>${i.date.slice(5)}</span></div>${links(i)}</div>`;
