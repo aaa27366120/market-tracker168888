@@ -1,0 +1,26 @@
+{
+  "updated": "2026-11-10 12:30",
+  "attempts": [
+    {
+      "ts": "2026-11-10 12:30",
+      "sym": "TX",
+      "site": "玩股網",
+      "url": "https://www.wantgoo.com/futures/wtx&",
+      "http_status": 403,
+      "bytes": 5624,
+      "status": "blocked",
+      "reason": "網站拒絕自動存取（HTTP 403），今天不再嘗試"
+    },
+    {
+      "ts": "2026-11-10 12:30",
+      "sym": "TXALL",
+      "site": "Yahoo 奇摩",
+      "url": "https://tw.stock.yahoo.com/future/WTX&",
+      "http_status": 200,
+      "bytes": 549848,
+      "snippet": " 台指期近一(WTX&) 期貨走勢圖 - Yahoo股市 首頁 新聞 股市 運動 TV 汽機車 購物中心 拍賣 氣象 App 下載 Yahoo股市 ",
+      "status": "parse_failed",
+      "reason": "找不到報價欄位（網頁格式可能改變，或內容要用 JavaScript 才會載入）"
+    }
+  ]
+}
