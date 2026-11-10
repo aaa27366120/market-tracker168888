@@ -3,6 +3,7 @@ on:
   schedule:
     # 以下為 UTC；台灣 = UTC+8。GitHub 排程可能延遲數十分鐘。
     - cron: "7,37 1-5 * * 1-5"        # 台股盤中：台灣週一到週五 09:07 到 13:37，每 30 分鐘（最後一次在收盤後，補抓最終價）
+    - cron: "7 6 * * 1-5"             # 台指期日盤收盤後：台灣 14:07（抓玩股網收盤報價，並嘗試抓期交所官方資料）
     - cron: "7 8,10 * * 1-5"          # 台股收盤後：台灣 16:07、18:07（證交所、期交所資料；當天已有就跳過第二次）
     - cron: "7 14,16,18,20,22 * * 1-5" # 美股交易時段每 2 小時（台灣 22:07、00:07、02:07、04:07、06:07）；最後一次為收盤後最終更新，夏令冬令都涵蓋
   workflow_dispatch: {}
@@ -42,4 +43,5 @@ jobs:
           git config user.name "market-bot"
           git config user.email "bot@users.noreply.github.com"
           git add docs/data.json
+          git add docs/fut_probe.json 2>/dev/null || true
           git diff --staged --quiet || (git commit -m "update data" && git push)
