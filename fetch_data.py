@@ -55,12 +55,12 @@ def _yf(t: str) -> str:
 def _tv(s: str) -> str:
     return "https://www.tradingview.com/chart/?symbol=" + quote(s, safe="")
 
-# 卡片連結。代碼未逐一實測，台指期的 Yahoo 連結最不確定，請點過確認。
-_TV_TXF = "https://tw.tradingview.com/chart/?symbol=TAIFEX%3ATXF1%21"  # 台指期連續合約 K 線（通用網址）
+# 卡片外部行情連結：日盤、夜盤分開，夜盤另提供 TradingView 連續合約 K 線。
+_TV_TXF = "https://tw.tradingview.com/chart/J8yYzCyl/?symbol=TAIFEX%3ATXF1%21"
 LINKS = {
     "^TWII": {"yahoo": "https://tw.stock.yahoo.com/quote/%5ETWII", "tv": _tv("TWSE:TAIEX")},
-    "TX": {"wantgoo": "https://www.wantgoo.com/futures/wtx&"},
-    "TXALL": {"yahoo": "https://tw.stock.yahoo.com/future/WTX&", "tv": _TV_TXF},
+    "TX": {"cmoney_day": "https://www.cmoney.tw/forum/futures/TXF1"},
+    "TXALL": {"cmoney_night": "https://www.cmoney.tw/forum/futures/TXF1?s=p", "tv": _TV_TXF},
     "^GSPC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EGSPC", "tv": _tv("SP:SPX")},
     "^IXIC": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EIXIC", "tv": _tv("NASDAQ:IXIC")},
     "^DJI": {"yahoo": "https://tw.stock.yahoo.com/quote/%5EDJI", "tv": _tv("DJ:DJI")},
