@@ -255,6 +255,19 @@ def num(x: Any) -> float | None:
         return None
 
 
+def signed_num(x: Any) -> float | None:
+    """解析期交所漲跌幅；向下箭頭代表負值，不能被一般數字清理器吃掉方向。"""
+    raw = str(x or "").strip()
+    value = num(raw)
+    if value is None:
+        return None
+    if "▼" in raw:
+        return -abs(value)
+    if "▲" in raw:
+        return abs(value)
+    return value
+
+
 def pick(r: dict[str, Any], *keys: str) -> Any:
     for k in keys:
         if r.get(k) not in (None, "", "-"):
@@ -278,7 +291,7 @@ def tx_rows() -> dict[str, dict[str, dict[str, Any]]]:
         sess = str(pick(r, "TradingSession", "交易時段") or "")
         k = "night" if ("盤後" in sess or "after" in sess.lower()) else "day"
         row = {"m": m, "high": num(pick(r, "High", "最高價")), "low": num(pick(r, "Low", "最低價")),
-               "last": num(pick(r, "Last", "最後成交價")), "chg_pct": num(pick(r, "%", "漲跌%")),
+               "last": num(pick(r, "Last", "最後成交價")), "chg_pct": signed_num(pick(r, "%", "漲跌%")),
                "vol": num(pick(r, "Volume", "成交量")), "oi": num(pick(r, "OpenInterest", "未沖銷契約量"))}
         cur = by.setdefault(d, {}).get(k)
         if cur is None or m < cur["m"]:
