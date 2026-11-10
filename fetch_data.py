@@ -6,6 +6,7 @@ workflow run is not treated as proof that every source returned fresh data.
 from __future__ import annotations
 
 import datetime as dt
+import html as html_lib
 import io
 import json
 import os
@@ -53,10 +54,11 @@ def _tv(s: str) -> str:
     return "https://www.tradingview.com/chart/?symbol=" + quote(s, safe="")
 
 # 卡片連結。代碼未逐一實測，台指期的 Yahoo 連結最不確定，請點過確認。
-_TXL = {"yahoo": "https://tw.stock.yahoo.com/future/WTX%26", "tv": _tv("TAIFEX:TX1!")}
+_TV_TXF = "https://tw.tradingview.com/chart/?symbol=TAIFEX%3ATXF1%21"  # 台指期連續合約 K 線（通用網址）
 LINKS = {
     "^TWII": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5ETWII"), "tv": _tv("TWSE:TAIEX")},
-    "TX": _TXL, "TXALL": _TXL,
+    "TX": {"wantgoo": "https://www.wantgoo.com/futures/wtx&"},
+    "TXALL": {"yahoo": "https://tw.stock.yahoo.com/future/WTX&", "tv": _TV_TXF},
     "^GSPC": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EGSPC"), "tv": _tv("SP:SPX")},
     "^IXIC": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EIXIC"), "tv": _tv("NASDAQ:IXIC")},
     "^DJI": {"yahoo": _yf("https://tw.stock.yahoo.com/quote/%5EDJI"), "tv": _tv("DJ:DJI")},
@@ -238,36 +240,196 @@ def fut_records(by: dict) -> dict[str, list[dict[str, Any]]]:
     return out
 
 
-def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None, ok: bool) -> dict[str, Any]:
+# ---------- 網頁報價（第三方網頁，非官方；可一鍵關閉） ----------
+ENABLE_WEB_QUOTES = True  # 改成 False，或在環境變數設 WEB_QUOTES=0，就完全不抓網頁報價，只用官方資料
+WEB_SITES = {
+    "TX": {"name": "玩股網", "url": "https://www.wantgoo.com/futures/wtx&"},       # 台指期（日盤）
+    "TXALL": {"name": "Yahoo 奇摩", "url": "https://tw.stock.yahoo.com/future/WTX&"},  # 台指期（含夜盤）
+}
+WEB_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; personal-market-dashboard/1.0)", "Accept-Language": "zh-TW,zh;q=0.9"}
+BLOCK_HINTS = ("captcha", "just a moment", "access denied", "cf-chl", "unusual traffic", "請驗證", "驗證您是人類")
+
+
+def web_enabled() -> bool:
+    return ENABLE_WEB_QUOTES and os.environ.get("WEB_QUOTES", "1") != "0"
+
+
+def web_due(sym: str, now: dt.datetime) -> bool:
+    """依你定的時間表：卡片 2＝台股交易時段每小時（含 14:07 收盤）；卡片 3＝16、18、22、00、02、04、06 點的 :07 那次。"""
+    if now.minute >= 25:  # 只在每小時的 :07 那次抓；排程延遲太多就略過
+        return False
+    wd, h = now.weekday(), now.hour
+    if sym == "TX":
+        return wd < 5 and 9 <= h <= 14
+    return (wd < 5 and h in (16, 18, 22)) or (1 <= wd <= 5 and h in (0, 2, 4, 6))
+
+
+def html_text(raw: str) -> str:
+    raw = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", raw)
+    text = html_lib.unescape(re.sub(r"(?s)<[^>]+>", "\n", raw))
+    return re.sub(r"[ \t\r\f\v]+", " ", text)
+
+
+def fetch_page(url: str) -> tuple[int, str, str]:
+    """回傳 (狀態碼, 內容, 標記)。403/429 或驗證畫面視為被擋，不重試；逾時或 5xx 才重試一次。"""
+    last: Exception | None = None
+    for _ in range(2):
+        try:
+            r = requests.get(url, headers=WEB_HEADERS, timeout=20)
+        except requests.RequestException as exc:
+            last = exc
+            time.sleep(3)
+            continue
+        if r.status_code in (403, 429):
+            return r.status_code, r.text, "blocked"
+        if r.status_code >= 500:
+            last = RuntimeError(f"HTTP {r.status_code}")
+            time.sleep(3)
+            continue
+        low = r.text[:6000].lower()
+        if "wtx&" not in low and any(h in low for h in BLOCK_HINTS):
+            return r.status_code, r.text, "blocked"
+        return r.status_code, r.text, "ok"
+    raise last or RuntimeError("無法連線")
+
+
+def parse_wantgoo(text: str) -> dict[str, Any] | None:
+    m = re.search(r"WTX&\s*([\d,]+(?:\.\d+)?)\s*([\d,]+(?:\.\d+)?)\s*([\d.]+)%", text)
+    if not m:
+        return None
+    return {"price": num(m[1]), "pct_abs": num(m[3]), "ref": None, "quote_time": None}
+
+
+def parse_yahoo(text: str) -> dict[str, Any] | None:
+    m = re.search(r"WTX&\s*([\d,]+\.\d+)\s*([\d,]+\.\d+)\s*\(\s*([\d.]+)%\s*\)", text)
+    if not m:
+        return None
+    ref = re.search(r"昨收\s*([\d,]+\.\d+)", text)
+    t = re.search(r"(\d{4})/(\d{2})/(\d{2})\s+(\d{2}):(\d{2})\s*更新", text)
+    return {"price": num(m[1]), "pct_abs": num(m[3]), "ref": num(ref[1]) if ref else None,
+            "quote_time": f"{t[1]}-{t[2]}-{t[3]} {t[4]}:{t[5]}" if t else None}
+
+
+def scrape_quote(sym: str, now: dt.datetime, ref_close: float | None) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """抓一次網頁報價。回傳 (報價或 None, 診斷紀錄)。報價時間一律是台灣時間 'YYYY-MM-DD HH:MM'。"""
+    site = WEB_SITES[sym]
+    att: dict[str, Any] = {"ts": now.strftime("%Y-%m-%d %H:%M"), "sym": sym, "site": site["name"], "url": site["url"]}
+    try:
+        status, body, flag = fetch_page(site["url"])
+        att.update(http_status=status, bytes=len(body))
+        if flag == "blocked":
+            att.update(status="blocked", reason=f"網站拒絕自動存取（HTTP {status}），今天不再嘗試")
+            return None, att
+        text = html_text(body)
+        i = text.find("WTX&")
+        att["snippet"] = re.sub(r"\s+", " ", text[max(0, i - 30): i + 150]) if i >= 0 else ""
+        parsed = (parse_wantgoo if sym == "TX" else parse_yahoo)(text)
+        if not parsed or not parsed["price"]:
+            att.update(status="parse_failed", reason="找不到報價欄位（網頁格式可能改變，或內容要用 JavaScript 才會載入）")
+            return None, att
+        price = parsed["price"]
+        ref = parsed["ref"] or ref_close  # 網頁文字沒有正負號：用昨收（或我們已有的上一交易日收盤）判斷漲跌方向
+        if not 10000 < price < 100000 or (ref and abs(price / ref - 1) > 0.2):
+            att.update(status="parse_failed", reason=f"報價數字不合理（{price}），已捨棄")
+            return None, att
+        pct = None if not ref else round((1 if price >= ref else -1) * (parsed["pct_abs"] or 0), 2)
+        qt = parsed["quote_time"] or now.strftime("%Y-%m-%d %H:%M")
+        att.update(status="ok", price=price)
+        return {"price": price, "chg_pct": pct, "quote_time": qt, "source": site["name"]}, att
+    except Exception as exc:
+        att.update(status="error", reason=f"{type(exc).__name__}: {exc}")
+        return None, att
+
+
+def write_probe(attempts: list[dict[str, Any]], updated: str) -> None:
+    """診斷檔：最近 40 次網頁報價抓取的結果，抓不到時用來找原因。"""
+    if not attempts:
+        return
+    path = os.path.join(os.path.dirname(OUT), "fut_probe.json")
+    old: list = []
+    try:
+        old = json.load(open(path, encoding="utf-8")).get("attempts", [])
+    except Exception:
+        pass
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "w", encoding="utf-8") as handle:
+        json.dump({"updated": updated, "attempts": (old + attempts)[-40:]}, handle, ensure_ascii=False, indent=2)
+    os.replace(path + ".tmp", path)
+
+
+def web_newer(sym: str, q: dict[str, Any], last_date: str) -> bool:
+    """網頁報價是否比期交所最新的日盤收盤更新。卡片 2 看日期；卡片 3 看是否晚於當日 13:45 日盤收盤。"""
+    qt = q.get("quote_time") or ""
+    return bool(qt) and (qt[:10] > last_date if sym == "TX" else qt > f"{last_date} 13:45")
+
+
+def quote_age_hours(qt: str, now: dt.datetime | None) -> float:
+    if now is None:
+        return 0.0
+    return (now.replace(tzinfo=None) - dt.datetime.strptime(qt, "%Y-%m-%d %H:%M")).total_seconds() / 3600
+
+
+def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None, ok: bool,
+             web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> dict[str, Any]:
     if not hist:
         return {"sym": sym, "name": name, "error": "歷史資料累積中，之後每天會自動增加", "stale": True}
     last, prior = hist[-1], hist[:-1][-SUPPORT_DAYS:]
     lows = [x["low"] for x in prior if x.get("low") is not None]
     vols = [x["vol"] for x in prior[-20:] if x.get("vol")]
+    q = (web or {}).get("quote")
+    att = (web or {}).get("last_attempt") or {}
+    # 網頁報價超過 36 小時就不再使用（例如連續好幾天抓不到），改回官方資料
+    used_web = bool(q) and not live and web_newer(sym, q, last["date"]) and quote_age_hours(q["quote_time"], now) <= 36
+    fresh = bool(live) or used_web  # 顯示的價格比官方最新日盤收盤更新
+    price, chg, pdate = last["close"], last["chg_pct"], last["date"]
+    src, ptime = "期交所官方・日盤收盤", last["date"][5:]
+    if live:
+        price, chg, pdate = live[1]["last"], live[1]["chg_pct"], live[0]
+        src, ptime = "期交所官方・夜盤收盤", live[0][5:]
+    elif used_web:
+        price, chg, pdate = q["price"], q.get("chg_pct"), q["quote_time"][:10]
+        src, ptime = f"網頁報價・{q['source']}", f"{q['quote_time'][5:10]} {q['quote_time'][11:16]}"
     it: dict[str, Any] = {
-        "sym": sym, "name": name, "date": last["date"], "close": last["close"], "chg": last["chg_pct"],
-        "oi": last["oi"], "volume": last["vol"], "volume_unit": "口", "support": None, "dist": None,
-        "vol_ratio": None, "volume_status": "累積中", "level": "ok", "stale": not ok,
-        "spark": [x["close"] for x in hist[-SUPPORT_DAYS:]], "history_days": len(hist),
+        "sym": sym, "name": name, "date": pdate, "close": price, "chg": chg, "oi": last["oi"],
+        "volume": last["vol"], "volume_unit": "口", "support": None, "dist": None, "vol_ratio": None,
+        "volume_status": "累積中", "level": "ok", "stale": not ok, "history_days": len(hist),
+        "spark": [x["close"] for x in hist[-SUPPORT_DAYS:]],
+        "price_source": src, "price_time": ptime, "web_status": att.get("status"),
+        "session": "網頁報價" if used_web else "官方資料", "session_class": "open" if used_web else "closed",
     }
+    if fresh:
+        it["volume_note"] = f"{last['date'][5:]} 官方"
+        if sym == "TXALL":  # 夜盤（或盤後）價格對最近一個日盤收盤的差
+            it["vs_day_pts"] = round(price - last["close"], 1)
+            it["vs_day_pct"] = round((price / last["close"] - 1) * 100, 2)
     if len(lows) >= 5:
         it["support"] = min(lows)
-        it["dist"] = round((last["close"] / it["support"] - 1) * 100, 1)
-        if vols and last["vol"]:
+        it["dist"] = round((price / it["support"] - 1) * 100, 1)
+        if vols and last["vol"] and not fresh:
             it["vol_ratio"] = round(last["vol"] / (sum(vols) / len(vols)), 2)
             it["volume_status"] = "有效"
-        it["text"], it["level"] = judge(last["close"], it["support"], it["dist"], it["vol_ratio"])
+        elif fresh:
+            it["volume_status"] = "盤中不顯示"
+        it["text"], it["level"] = judge(price, it["support"], it["dist"], it["vol_ratio"])
     else:
         it["text"] = f"歷史資料累積中（{len(hist)}/60 天），滿 5 天後開始顯示支撐"
-    if live:  # 夜盤進行中或剛結束：顯示盤後最新價
-        it["close"], it["chg"], it["date"] = live[1]["last"], live[1]["chg_pct"], live[0]
-        it["text"] = "盤後最新價；" + it["text"]
-    if not ok:
+    if not ok and not used_web:
         it["text"] = f"期交所更新失敗，顯示舊資料（{last['date']}）"
+    if sym == "TX" and q and not used_web and q["quote_time"][:10] == last["date"] and q["quote_time"][11:16] >= "13:45":
+        diff = (q["price"] / last["close"] - 1) * 100  # 收盤後：網頁報價 vs 期交所官方收盤
+        it["crosscheck"] = {"status": "ok" if abs(diff) <= 0.05 else "mismatch", "official": last["close"],
+                            "diff_pct": round(diff, 3), "date": last["date"], "source": "期交所"}
+    if used_web and att.get("status") not in (None, "ok") and str(att.get("ts", "")) > q["quote_time"]:
+        it["web_note"] = (f"最近一次網頁報價抓取失敗（{att.get('reason') or att.get('status')}），"
+                          f"目前顯示的是 {q['quote_time'][5:]} 的報價。")
+    elif not used_web and not live and att.get("status") not in (None, "ok") and att.get("ts", "")[:10] >= last["date"]:
+        it["web_note"] = (f"網頁報價暫時取得失敗（{att.get('reason') or att.get('status')}），"
+                          f"改顯示期交所官方資料（{last['date']}）。官方資料只在收盤後更新。")
     return it
 
 
-def update_futures(hist: dict[str, Any], fetch: bool = True) -> tuple[dict[str, list], list[dict[str, Any]]]:
+def update_futures(hist: dict[str, Any], fetch: bool = True,
+                   web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
     hist = {k: list(v) for k, v in (hist or {}).items()}
     ok, live = True, None
     try:
@@ -284,8 +446,9 @@ def update_futures(hist: dict[str, Any], fetch: bool = True) -> tuple[dict[str, 
     except Exception as exc:
         ok = False
         print(f"台指期更新失敗：{exc}")
-    items = [fut_item("TX", "台指期（近月）", hist.get("TX", []), None, ok),
-             fut_item("TXALL", "台指期（全）", hist.get("TXALL", []), live, ok)]
+    web = web or {}
+    items = [fut_item("TX", "台指期（近月）", hist.get("TX", []), None, ok, web.get("TX"), now),
+             fut_item("TXALL", "台指期（全）", hist.get("TXALL", []), live, ok, web.get("TXALL"), now)]
     return hist, items
 
 
@@ -558,7 +721,26 @@ def main(now_utc: dt.datetime | None = None) -> None:
     turnover = twse_turnover() if need((prev_turnover or {}).get("date"), post_close) else prev_turnover
     hist0 = previous.get("fut_hist", {})
     last_fut = (hist0.get("TX") or [{}])[-1].get("date")
-    fut_hist, fut_items = update_futures(hist0, need(last_fut, post_close or pre_market))
+    web_state = {k: dict(v) for k, v in (previous.get("fut_web") or {}).items()}
+    attempts: list[dict[str, Any]] = []
+    if web_enabled():
+        for sym in ("TX", "TXALL"):
+            st = web_state.setdefault(sym, {})
+            la = st.get("last_attempt") or {}
+            blocked_today = la.get("status") == "blocked" and str(la.get("ts", ""))[:10] == today
+            if not (manual or (web_due(sym, now) and not blocked_today)):
+                continue
+            if attempts:
+                time.sleep(PAUSE)
+            ref = next((x["close"] for x in reversed(hist0.get(sym) or []) if x["date"] < today), None)
+            quote_, att = scrape_quote(sym, now, ref)
+            attempts.append(att)
+            st["last_attempt"] = {k: att.get(k) for k in ("ts", "status", "reason", "http_status")}
+            if quote_:
+                st["quote"] = quote_
+            print(f"[網頁報價 {sym}] {att.get('status')} {att.get('reason') or att.get('price') or ''}")
+    fut_allowed = (now.weekday() < 5 and now.time() >= dt.time(14, 0)) or pre_market  # 日盤收盤後起嘗試抓官方
+    fut_hist, fut_items = update_futures(hist0, need(last_fut, fut_allowed), web_state, now)
     prev_foreign = previous.get("foreign", [])
     if need(prev_foreign[-1].get("date") if prev_foreign else None, post_close):
         foreign, foreign_meta = foreign_flow(prev_foreign)
@@ -604,7 +786,7 @@ def main(now_utc: dt.datetime | None = None) -> None:
             items.extend(fut_items)
 
     for it in items:  # 市場狀態與看盤連結
-        if not it.get("error"):
+        if not it.get("error") and it.get("sym") not in ("TX", "TXALL"):  # 台指期的標籤由報價來源決定
             it.update(session_fields(it.get("sym", ""), it.get("date"), now_utc))
         it["links"] = LINKS.get(it.get("sym"))
 
@@ -620,12 +802,14 @@ def main(now_utc: dt.datetime | None = None) -> None:
         "foreign_meta": foreign_meta,
         "turnover": turnover,
         "fut_hist": fut_hist,
+        "fut_web": web_state,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     temp_out = OUT + ".tmp"
     with open(temp_out, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
     os.replace(temp_out, OUT)
+    write_probe(attempts, data["updated"])
     print(f"完成 {data['updated']}；行情成功 {success_count}/{total}；外資狀態 {foreign_meta.get('status')}")
 
 
