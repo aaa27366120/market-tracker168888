@@ -93,8 +93,8 @@ const xc=i=>{const c=i.crosscheck;if(!c)return null;
   if(c.status==="mismatch")return `<span style="color:var(--break)">差 ${sg(c.diff_pct)}（${c.source||"證交所"} ${f(c.official)}）</span>`;
   return c.status==="pending"?"待收盤後核對":"無法核對";};
 const tag=i=>i.session?`<span class="sess ${i.session_class||""}">${i.session}</span>`:"";
-const LBL={wantgoo:"玩股網 台指期",yahoo:"Yahoo 行情",tv:"TradingView K 線"};
-const links=i=>i.links?`<div class="links">${["wantgoo","yahoo","tv"].filter(k=>i.links[k]).map(k=>`<a href="${i.links[k]}" target="_blank" rel="noopener noreferrer">${LBL[k]}</a>`).join("")}</div>`:"";
+const LBL={cmoney_day:"CMoney 日盤即時行情",cmoney_night:"CMoney 夜盤即時行情",wantgoo:"玩股網 台指期",yahoo:"Yahoo 行情",tv:"TradingView K 線"};
+const links=i=>i.links?`<div class="links">${["cmoney_day","cmoney_night","tv","wantgoo","yahoo"].filter(k=>i.links[k]).map(k=>`<a href="${i.links[k]}" target="_blank" rel="noopener noreferrer">${LBL[k]}</a>`).join("")}</div>`:"";
 function spark(a,sup){
   if(!a||a.length<2)return "";
   const has=sup!=null;if(!has)sup=Math.min(...a);
