@@ -499,7 +499,10 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
         item["text"] = f"期交所資料更新失敗，顯示舊資料（最後成功日期：{last['date']}）"
         item["fetch_error"] = "本次期交所官方資料未成功取得"
     if is_night:
-        item["session_note"] = "此卡只顯示夜盤，不包含日盤；白天保留最近一次夜盤收盤資料。"
+        item["session_note"] = (
+            "此卡只顯示期交所已公布的最近夜盤資料，不含日盤；"
+            "資料日期是交易資料日期，擷取時間另列，夜盤交易中不代表即時逐筆報價。"
+        )
     return item
 
 
