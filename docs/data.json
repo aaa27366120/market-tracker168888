@@ -32,23 +32,27 @@
         "sym": "^TWII",
         "name": "台灣加權指數",
         "date": "2026-11-10",
-        "close": 42589.38,
-        "chg": 2.23,
+        "close": 42711.92,
+        "chg": 2.52,
         "trend": "空頭",
         "weekly": "轉弱觀察",
         "monthly": "轉弱觀察",
-        "rsi14": 38.3,
+        "rsi14": 39.0,
         "macd_direction": "偏空",
-        "momentum20": -13.64,
+        "momentum20": -13.39,
         "stale": false,
-        "source": "Yahoo Finance",
+        "source": "證交所官方收盤（FMTQIK）",
         "intraday": false,
-        "ma20": 45390.52,
-        "ma60": 46318.59,
-        "vs_ma20": -6.2,
-        "vs_ma60": -8.1,
+        "technical_date": null,
+        "ma20": 45396.65,
+        "ma60": 46320.63,
+        "vs_ma20": -5.9,
+        "vs_ma60": -7.8,
         "crosscheck": {
-          "status": "pending"
+          "status": "ok",
+          "official": 42711.92,
+          "diff_pct": 0.0,
+          "date": "2026-11-10"
         }
       },
       {
@@ -66,6 +70,7 @@
         "stale": false,
         "source": "Yahoo Finance",
         "intraday": false,
+        "technical_date": null,
         "ma20": 7644.94,
         "ma60": 7678.66,
         "vs_ma20": -1.2,
@@ -87,6 +92,7 @@
         "stale": false,
         "source": "Yahoo Finance",
         "intraday": false,
+        "technical_date": null,
         "ma20": 25975.61,
         "ma60": 26407.67,
         "vs_ma20": -2.8,
@@ -108,6 +114,7 @@
         "stale": false,
         "source": "Yahoo Finance",
         "intraday": false,
+        "technical_date": null,
         "ma20": 52176.27,
         "ma60": 52265.36,
         "vs_ma20": 0.4,
@@ -129,6 +136,7 @@
         "stale": false,
         "source": "Yahoo Finance",
         "intraday": false,
+        "technical_date": null,
         "ma20": 10915.92,
         "ma60": 11686.06,
         "vs_ma20": -8.1,
@@ -139,19 +147,20 @@
         "sym": "GC=F",
         "name": "黃金期貨",
         "date": "2026-11-10",
-        "close": 4129.1,
-        "chg": 0.35,
+        "close": 4126.9,
+        "chg": 0.3,
         "trend": "轉強觀察",
         "weekly": "空頭",
         "monthly": "轉強觀察",
-        "rsi14": 51.5,
+        "rsi14": 51.3,
         "macd_direction": "偏多",
-        "momentum20": -1.15,
+        "momentum20": -1.21,
         "stale": false,
         "source": "Yahoo Finance",
         "intraday": true,
-        "ma20": 4074.5,
-        "ma60": 4278.2,
+        "technical_date": null,
+        "ma20": 4074.39,
+        "ma60": 4278.17,
         "vs_ma20": 1.3,
         "vs_ma60": -3.5,
         "crosscheck": null
@@ -160,38 +169,40 @@
         "sym": "CL=F",
         "name": "WTI 原油期貨",
         "date": "2026-11-10",
-        "close": 85.17,
-        "chg": -1.93,
+        "close": 84.53,
+        "chg": -2.67,
         "trend": "轉弱觀察",
         "weekly": "轉弱觀察",
         "monthly": "轉弱觀察",
-        "rsi14": 36.0,
+        "rsi14": 35.3,
         "macd_direction": "偏空",
-        "momentum20": -9.53,
+        "momentum20": -10.21,
         "stale": false,
         "source": "Yahoo Finance",
         "intraday": true,
-        "ma20": 97.22,
-        "ma60": 93.74,
-        "vs_ma20": -12.4,
-        "vs_ma60": -9.1,
+        "technical_date": null,
+        "ma20": 97.19,
+        "ma60": 93.73,
+        "vs_ma20": -13.0,
+        "vs_ma60": -9.8,
         "crosscheck": null
       },
       {
         "sym": "TWD=X",
         "name": "美元兌台幣",
         "date": "2026-11-10",
-        "close": 32.85,
-        "chg": 0.26,
+        "close": 32.84,
+        "chg": 0.25,
         "trend": "多頭",
         "weekly": "多頭",
         "monthly": "多頭",
         "rsi14": 63.3,
         "macd_direction": "偏多",
-        "momentum20": 2.87,
+        "momentum20": 2.86,
         "stale": false,
         "source": "Yahoo Finance",
         "intraday": true,
+        "technical_date": null,
         "ma20": 32.55,
         "ma60": 32.02,
         "vs_ma20": 0.9,
@@ -203,7 +214,7 @@
     "updated": "2026-11-10",
     "method": "四個主要指數等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"
   },
-  "updated": "2026-11-10 15:02",
+  "updated": "2026-11-10 16:44",
   "update_status": "success",
   "successful_items": 10,
   "total_items": 10,
@@ -212,18 +223,18 @@
       "sym": "^TWII",
       "name": "台灣加權指數",
       "date": "2026-11-10",
-      "close": 42589.38,
-      "chg": 2.23,
+      "close": 42711.92,
+      "chg": 2.52,
       "support": 37837.05,
-      "dist": 12.6,
-      "ma60": 46318.59,
-      "vs_ma60": -8.1,
-      "vol_ratio": null,
-      "volume": null,
-      "volume_unit": "",
-      "volume_note": "",
-      "volume_status": "尚無成交金額資料",
-      "drawdown": 14.5,
+      "dist": 12.9,
+      "ma60": 46320.63,
+      "vs_ma60": -7.8,
+      "vol_ratio": 1.05,
+      "volume": 10322.5,
+      "volume_unit": "億元",
+      "volume_note": "證交所每日市場成交資訊口徑",
+      "volume_status": "有效",
+      "drawdown": 14.3,
       "drawdown_status": "未達 15% 回落門檻",
       "text": "距近 60 日支撐尚遠",
       "level": "ok",
@@ -287,50 +298,63 @@
         41574.72,
         39701.64,
         41661.7,
-        42589.38
+        42711.92
       ],
       "stale": false,
-      "source": "Yahoo Finance",
+      "source": "證交所官方收盤（FMTQIK）",
+      "source_date": "2026-11-10",
+      "yahoo_close": 42711.92,
+      "yahoo_date": "2026-11-10",
       "technical": {
         "status": "success",
         "daily": {
           "trend": "空頭",
-          "close": 42589.38,
-          "fast_ma": 45390.52,
-          "slow_ma": 46318.59,
+          "close": 42711.92,
+          "fast_ma": 45396.65,
+          "slow_ma": 46320.63,
           "bars": 242
         },
         "weekly": {
           "trend": "轉弱觀察",
-          "close": 42589.38,
-          "fast_ma": 46059.79,
-          "slow_ma": 45262.99,
+          "close": 42711.92,
+          "fast_ma": 46070.0,
+          "slow_ma": 45267.7,
           "bars": 52
         },
         "monthly": {
           "trend": "轉弱觀察",
-          "close": 42589.38,
-          "fast_ma": 45247.11,
-          "slow_ma": 45185.91,
+          "close": 42711.92,
+          "fast_ma": 45287.96,
+          "slow_ma": 45206.33,
           "bars": 13
         },
-        "rsi14": 38.3,
+        "rsi14": 39.0,
         "macd": {
-          "line": -1515.502,
-          "signal": -989.661,
-          "histogram": -525.841,
+          "line": -1505.727,
+          "signal": -987.706,
+          "histogram": -518.02,
           "direction": "偏空"
         },
-        "ma20": 45390.52,
-        "ma60": 46318.59,
-        "ma120": 45358.05,
-        "momentum20": -13.64,
+        "ma20": 45396.65,
+        "ma60": 46320.63,
+        "ma120": 45359.07,
+        "momentum20": -13.39,
         "bars": 242
       },
       "captured_open": false,
+      "data_status": "success",
+      "last_success_date": "2026-11-10",
+      "checked_at": "2026-11-10 16:44",
       "crosscheck": {
-        "status": "pending"
+        "status": "ok",
+        "official": 42711.92,
+        "diff_pct": 0.0,
+        "date": "2026-11-10"
       },
+      "close_status": "success",
+      "close_checked_at": "2026-11-10 16:44",
+      "close_status_note": "正式收盤價資料日期：2026-11-10；已使用官方收盤價更新技術分析",
+      "live_status": "closed",
       "session": "已收盤",
       "session_class": "closed",
       "links": {
@@ -340,7 +364,7 @@
     },
     {
       "sym": "TX",
-      "name": "台指期（近月）",
+      "name": "台指期（近月）・日盤",
       "date": "2026-11-09",
       "close": 41423.0,
       "chg": 4.47,
@@ -358,25 +382,26 @@
         39786.0,
         41423.0
       ],
-      "price_source": "期交所官方・日盤收盤",
-      "price_time": "11-09",
-      "web_status": "blocked",
-      "session": "官方資料",
+      "price_source": "期交所官方・日盤",
+      "price_time": "2026-11-09",
+      "session": "最近日盤收盤",
       "session_class": "closed",
-      "text": "歷史資料累積中（2/60 天），滿 5 天後開始顯示支撐",
-      "web_note": "網頁報價暫時取得失敗（網站拒絕自動存取（HTTP 403），今天不再嘗試），改顯示期交所官方資料（2026-11-09）。官方資料只在收盤後更新。",
+      "checked_at": "2026-11-10 16:44",
+      "data_status": "success",
+      "last_success_date": "2026-11-09",
+      "text": "歷史資料累積中（2/60 天）",
       "links": {
-        "wantgoo": "https://www.wantgoo.com/futures/wtx&"
+        "cmoney_day": "https://www.cmoney.tw/forum/futures/TXF1"
       }
     },
     {
       "sym": "TXALL",
-      "name": "台指期（全）",
+      "name": "台指期（全）・夜盤",
       "date": "2026-11-09",
-      "close": 41423.0,
-      "chg": 4.47,
-      "oi": 123179.0,
-      "volume": 164648.0,
+      "close": 40298.0,
+      "chg": 1.63,
+      "oi": null,
+      "volume": 69882.0,
       "volume_unit": "口",
       "support": null,
       "dist": null,
@@ -384,21 +409,22 @@
       "volume_status": "累積中",
       "level": "ok",
       "stale": false,
-      "history_days": 2,
+      "history_days": 1,
       "spark": [
-        39786.0,
-        41423.0
+        40298.0
       ],
-      "price_source": "期交所官方・日盤收盤",
-      "price_time": "11-09",
-      "web_status": "parse_failed",
-      "session": "官方資料",
-      "session_class": "closed",
-      "text": "歷史資料累積中（2/60 天），滿 5 天後開始顯示支撐",
-      "web_note": "網頁報價暫時取得失敗（找不到報價欄位（網頁格式可能改變，或內容要用 JavaScript 才會載入）），改顯示期交所官方資料（2026-11-09）。官方資料只在收盤後更新。",
+      "price_source": "期交所官方・夜盤",
+      "price_time": "2026-11-09",
+      "session": "夜盤時段",
+      "session_class": "open",
+      "checked_at": "2026-11-10 16:44",
+      "data_status": "success",
+      "last_success_date": "2026-11-09",
+      "text": "歷史資料累積中（1/60 天）",
+      "session_note": "此卡只顯示期交所已公布的最近夜盤資料，不含日盤；資料日期是交易資料日期，擷取時間另列，夜盤交易中不代表即時逐筆報價。",
       "links": {
-        "yahoo": "https://tw.stock.yahoo.com/future/WTX&",
-        "tv": "https://tw.tradingview.com/chart/?symbol=TAIFEX%3ATXF1%21"
+        "cmoney_night": "https://www.cmoney.tw/forum/futures/TXF1?s=p",
+        "tv": "https://tw.tradingview.com/chart/J8yYzCyl/?symbol=TAIFEX%3ATXF1%21"
       }
     },
     {
@@ -484,6 +510,9 @@
       ],
       "stale": false,
       "source": "Yahoo Finance",
+      "source_date": "2026-11-09",
+      "yahoo_close": null,
+      "yahoo_date": null,
       "technical": {
         "status": "success",
         "daily": {
@@ -521,6 +550,9 @@
         "bars": 251
       },
       "captured_open": false,
+      "data_status": "success",
+      "last_success_date": "2026-11-09",
+      "checked_at": "2026-11-10 16:44",
       "session": "已收盤",
       "session_class": "closed",
       "links": {
@@ -611,6 +643,9 @@
       ],
       "stale": false,
       "source": "Yahoo Finance",
+      "source_date": "2026-11-09",
+      "yahoo_close": null,
+      "yahoo_date": null,
       "technical": {
         "status": "success",
         "daily": {
@@ -648,6 +683,9 @@
         "bars": 251
       },
       "captured_open": false,
+      "data_status": "success",
+      "last_success_date": "2026-11-09",
+      "checked_at": "2026-11-10 16:44",
       "session": "已收盤",
       "session_class": "closed",
       "links": {
@@ -738,6 +776,9 @@
       ],
       "stale": false,
       "source": "Yahoo Finance",
+      "source_date": "2026-11-09",
+      "yahoo_close": null,
+      "yahoo_date": null,
       "technical": {
         "status": "success",
         "daily": {
@@ -775,6 +816,9 @@
         "bars": 251
       },
       "captured_open": false,
+      "data_status": "success",
+      "last_success_date": "2026-11-09",
+      "checked_at": "2026-11-10 16:44",
       "session": "已收盤",
       "session_class": "closed",
       "links": {
@@ -865,6 +909,9 @@
       ],
       "stale": false,
       "source": "Yahoo Finance",
+      "source_date": "2026-11-09",
+      "yahoo_close": null,
+      "yahoo_date": null,
       "technical": {
         "status": "success",
         "daily": {
@@ -902,6 +949,9 @@
         "bars": 251
       },
       "captured_open": false,
+      "data_status": "success",
+      "last_success_date": "2026-11-09",
+      "checked_at": "2026-11-10 16:44",
       "session": "已收盤",
       "session_class": "closed",
       "links": {
@@ -913,11 +963,11 @@
       "sym": "GC=F",
       "name": "黃金期貨",
       "date": "2026-11-10",
-      "close": 4129.1,
-      "chg": 0.35,
+      "close": 4126.9,
+      "chg": 0.3,
       "support": 3879.3,
       "dist": 6.4,
-      "ma60": 4278.2,
+      "ma60": 4278.17,
       "vs_ma60": -3.5,
       "vol_ratio": 1.08,
       "volume": 178024.0,
@@ -988,47 +1038,53 @@
         4113.5,
         4074.9,
         4114.5,
-        4129.1
+        4126.9
       ],
       "stale": false,
       "source": "Yahoo Finance",
+      "source_date": "2026-11-10",
+      "yahoo_close": null,
+      "yahoo_date": null,
       "technical": {
         "status": "success",
         "daily": {
           "trend": "轉強觀察",
-          "close": 4129.1,
-          "fast_ma": 4074.5,
-          "slow_ma": 4278.2,
+          "close": 4126.9,
+          "fast_ma": 4074.39,
+          "slow_ma": 4278.17,
           "bars": 252
         },
         "weekly": {
           "trend": "空頭",
-          "close": 4129.1,
-          "fast_ma": 4236.0,
-          "slow_ma": 4263.39,
+          "close": 4126.9,
+          "fast_ma": 4235.82,
+          "slow_ma": 4263.3,
           "bars": 53
         },
         "monthly": {
           "trend": "轉強觀察",
-          "close": 4129.1,
-          "fast_ma": 4071.57,
-          "slow_ma": 4140.28,
+          "close": 4126.9,
+          "fast_ma": 4070.83,
+          "slow_ma": 4139.92,
           "bars": 13
         },
-        "rsi14": 51.5,
+        "rsi14": 51.3,
         "macd": {
-          "line": -35.959,
-          "signal": -56.113,
-          "histogram": 20.154,
+          "line": -36.135,
+          "signal": -56.148,
+          "histogram": 20.014,
           "direction": "偏多"
         },
-        "ma20": 4074.5,
-        "ma60": 4278.2,
-        "ma120": 4257.13,
-        "momentum20": -1.15,
+        "ma20": 4074.39,
+        "ma60": 4278.17,
+        "ma120": 4257.11,
+        "momentum20": -1.21,
         "bars": 252
       },
       "captured_open": true,
+      "data_status": "success",
+      "last_success_date": "2026-11-10",
+      "checked_at": "2026-11-10 16:44",
       "session": "交易中",
       "session_class": "open",
       "links": {
@@ -1040,19 +1096,19 @@
       "sym": "CL=F",
       "name": "WTI 原油期貨",
       "date": "2026-11-10",
-      "close": 85.17,
-      "chg": -1.93,
+      "close": 84.53,
+      "chg": -2.67,
       "support": 79.62,
-      "dist": 7.0,
-      "ma60": 93.74,
-      "vs_ma60": -9.1,
+      "dist": 6.2,
+      "ma60": 93.73,
+      "vs_ma60": -9.8,
       "vol_ratio": 1.01,
       "volume": 288175.0,
       "volume_unit": "口",
       "volume_note": "前一交易日",
       "volume_status": "有效",
-      "drawdown": 24.6,
-      "drawdown_status": "回落超過 15%（回落觀察）",
+      "drawdown": 25.2,
+      "drawdown_status": "回落超過 25%（高回落觀察）",
       "text": "距近 60 日支撐尚遠",
       "level": "ok",
       "spark": [
@@ -1115,47 +1171,53 @@
         90.52,
         90.83,
         86.85,
-        85.17
+        84.53
       ],
       "stale": false,
       "source": "Yahoo Finance",
+      "source_date": "2026-11-10",
+      "yahoo_close": null,
+      "yahoo_date": null,
       "technical": {
         "status": "success",
         "daily": {
           "trend": "轉弱觀察",
-          "close": 85.17,
-          "fast_ma": 97.22,
-          "slow_ma": 93.74,
+          "close": 84.53,
+          "fast_ma": 97.19,
+          "slow_ma": 93.73,
           "bars": 252
         },
         "weekly": {
           "trend": "轉弱觀察",
-          "close": 85.17,
-          "fast_ma": 94.62,
-          "slow_ma": 87.88,
+          "close": 84.53,
+          "fast_ma": 94.56,
+          "slow_ma": 87.85,
           "bars": 53
         },
         "monthly": {
           "trend": "轉弱觀察",
-          "close": 85.17,
-          "fast_ma": 93.24,
-          "slow_ma": 86.61,
+          "close": 84.53,
+          "fast_ma": 93.02,
+          "slow_ma": 86.5,
           "bars": 13
         },
-        "rsi14": 36.0,
+        "rsi14": 35.3,
         "macd": {
-          "line": -1.719,
-          "signal": 0.199,
-          "histogram": -1.918,
+          "line": -1.77,
+          "signal": 0.189,
+          "histogram": -1.959,
           "direction": "偏空"
         },
-        "ma20": 97.22,
-        "ma60": 93.74,
-        "ma120": 87.67,
-        "momentum20": -9.53,
+        "ma20": 97.19,
+        "ma60": 93.73,
+        "ma120": 87.66,
+        "momentum20": -10.21,
         "bars": 252
       },
       "captured_open": true,
+      "data_status": "success",
+      "last_success_date": "2026-11-10",
+      "checked_at": "2026-11-10 16:44",
       "session": "交易中",
       "session_class": "open",
       "links": {
@@ -1167,8 +1229,8 @@
       "sym": "TWD=X",
       "name": "美元兌台幣",
       "date": "2026-11-10",
-      "close": 32.85,
-      "chg": 0.26,
+      "close": 32.84,
+      "chg": 0.25,
       "support": 31.42,
       "dist": 4.5,
       "ma60": 32.02,
@@ -1242,36 +1304,39 @@
         32.82,
         33.11,
         32.76,
-        32.85
+        32.84
       ],
       "stale": false,
       "source": "Yahoo Finance",
+      "source_date": "2026-11-10",
+      "yahoo_close": null,
+      "yahoo_date": null,
       "technical": {
         "status": "success",
         "daily": {
           "trend": "多頭",
-          "close": 32.85,
+          "close": 32.84,
           "fast_ma": 32.55,
           "slow_ma": 32.02,
           "bars": 260
         },
         "weekly": {
           "trend": "多頭",
-          "close": 32.85,
+          "close": 32.84,
           "fast_ma": 32.16,
           "slow_ma": 32.02,
           "bars": 53
         },
         "monthly": {
           "trend": "多頭",
-          "close": 32.85,
+          "close": 32.84,
           "fast_ma": 32.42,
           "slow_ma": 32.19,
           "bars": 13
         },
         "rsi14": 63.3,
         "macd": {
-          "line": 0.224,
+          "line": 0.223,
           "signal": 0.203,
           "histogram": 0.021,
           "direction": "偏多"
@@ -1279,10 +1344,13 @@
         "ma20": 32.55,
         "ma60": 32.02,
         "ma120": 31.98,
-        "momentum20": 2.87,
+        "momentum20": 2.86,
         "bars": 260
       },
       "captured_open": true,
+      "data_status": "success",
+      "last_success_date": "2026-11-10",
+      "checked_at": "2026-11-10 16:44",
       "session": "交易中",
       "session_class": "open",
       "links": {
@@ -1299,19 +1367,25 @@
     {
       "date": "2026-11-09",
       "net_yi": -900.6
+    },
+    {
+      "date": "2026-11-10",
+      "net_yi": -341.2
     }
   ],
   "foreign_meta": {
     "status": "success",
     "message": "最新抓取成功",
-    "source_date": "2026-11-09",
-    "checked_at": "2026-11-10 13:00"
+    "source_date": "2026-11-10",
+    "checked_at": "2026-11-10 16:44"
   },
   "turnover": {
-    "date": "2026-11-09",
-    "amount_yi": 8770.3,
-    "ratio": 0.8892592822998252,
-    "index_close": 41661.7
+    "date": "2026-11-10",
+    "amount_yi": 10322.5,
+    "ratio": 1.0524799840510273,
+    "index_close": 42711.92,
+    "previous_index_close": 41661.7,
+    "source": "證交所 FMTQIK"
   },
   "fut_hist": {
     "TX": [
@@ -1333,48 +1407,23 @@
         "chg_pct": 4.47,
         "high": 42317.0,
         "low": 39996.0,
-        "vol": 94766.0
+        "vol": 94766.0,
+        "session": "day"
       }
     ],
     "TXALL": [
       {
-        "date": "2026-11-06",
-        "m": "202611",
-        "close": 39786.0,
-        "oi": 125793.0,
-        "chg_pct": -5.0,
-        "high": 42298.0,
-        "low": 37694.0,
-        "vol": 232573.0
-      },
-      {
         "date": "2026-11-09",
         "m": "202611",
-        "close": 41423.0,
-        "oi": 123179.0,
-        "chg_pct": 4.47,
-        "high": 42317.0,
+        "close": 40298.0,
+        "oi": null,
+        "chg_pct": 1.63,
+        "high": 40845.0,
         "low": 39129.0,
-        "vol": 164648.0
+        "vol": 69882.0,
+        "session": "night"
       }
     ]
   },
-  "fut_web": {
-    "TX": {
-      "last_attempt": {
-        "ts": "2026-11-10 13:00",
-        "status": "blocked",
-        "reason": "網站拒絕自動存取（HTTP 403），今天不再嘗試",
-        "http_status": 403
-      }
-    },
-    "TXALL": {
-      "last_attempt": {
-        "ts": "2026-11-10 13:00",
-        "status": "parse_failed",
-        "reason": "找不到報價欄位（網頁格式可能改變，或內容要用 JavaScript 才會載入）",
-        "http_status": 200
-      }
-    }
-  }
+  "fut_web": {}
 }
