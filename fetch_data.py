@@ -492,6 +492,8 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
 def update_futures(hist: dict[str, Any], fetch: bool = True,
                    web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
     hist = {k: list(v) for k, v in (hist or {}).items()}
+    # 舊版 TXALL 是日夜盤混合值，沒有 session 標記，不能再當作夜盤歷史。
+    hist["TXALL"] = [x for x in hist.get("TXALL", []) if x.get("session") == "night"]
     ok = True
     try:
         by = tx_rows() if fetch else {}
@@ -500,9 +502,6 @@ def update_futures(hist: dict[str, Any], fetch: bool = True,
             records = fut_records(by)
             for key in ("TX", "TXALL"):
                 merged = {x["date"]: x for x in hist.get(key, [])}
-                # 舊版 TXALL 是日夜盤混合值，沒有 session 標記，不能再當作夜盤歷史。
-                if key == "TXALL":
-                    merged = {d: x for d, x in merged.items() if x.get("session") == "night"}
                 merged.update({x["date"]: x for x in records.get(key, [])})
                 hist[key] = [merged[d] for d in sorted(merged)][-130:]
     except Exception as exc:
@@ -541,12 +540,15 @@ def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None 
     # 收盤後以證交所 FMTQIK 的正式指數收盤價覆蓋 Yahoo 日線；技術指標也使用同一正式收盤值。
     if sym == "^TWII" and override and override.get("index_close") is not None and override.get("date"):
         official_date = pd.Timestamp(override["date"])
-        latest_date = pd.Timestamp(df.index[-1]).normalize()
-        if official_date.normalize() >= latest_date:
-            if official_date.normalize() in df.index.normalize():
-                match = df.index.normalize() == official_date.normalize()
-                df.loc[match, "Close"] = float(override["index_close"])
-                df.loc[match, "Low"] = float(override["index_close"])
+        if getattr(df.index, "tz", None) is not None:
+            official_date = official_date.tz_localize(df.index.tz)
+        official_day = official_date.date()
+        latest_day = pd.Timestamp(df.index[-1]).date()
+        if official_day >= latest_day:
+            date_matches = [pd.Timestamp(x).date() == official_day for x in df.index]
+            if any(date_matches):
+                df.loc[date_matches, "Close"] = float(override["index_close"])
+                df.loc[date_matches, "Low"] = float(override["index_close"])
             else:
                 new_row = df.iloc[-1].copy()
                 new_row["Close"] = float(override["index_close"])
@@ -807,9 +809,9 @@ def main(now_utc: dt.datetime | None = None) -> None:
     close_fetch_failed = bool(turnover_due and not close_official_today)
 
     hist0 = previous.get("fut_hist", {})
-    last_fut = (hist0.get("TX") or [{}])[-1].get("date")
     fut_allowed = (now.weekday() < 5 and now.time() >= dt.time(14, 0)) or pre_market
-    fut_hist, fut_items = update_futures(hist0, need(last_fut, fut_allowed), now=now)
+    # 日盤資料今天已更新，不代表稍後的夜盤也已更新；允許時段每次工作流程執行都重新查詢期交所。
+    fut_hist, fut_items = update_futures(hist0, manual or fut_allowed, now=now)
 
     prev_foreign = previous.get("foreign", [])
     if need(prev_foreign[-1].get("date") if prev_foreign else None, post_close):
@@ -880,7 +882,13 @@ def main(now_utc: dt.datetime | None = None) -> None:
             if mkt_open:
                 try:
                     live = fetch_twse_intraday(now)
-                    previous_close = item.get("close")
+                    previous_close = None
+                    if turnover and turnover.get("date") == today:
+                        previous_close = turnover.get("previous_index_close")
+                    if previous_close is None and old and old.get("date") < today:
+                        previous_close = old.get("close")
+                    if previous_close is None and item.get("date") < today:
+                        previous_close = item.get("close")
                     live_chg = ((live["price"] / previous_close) - 1) * 100 if previous_close else None
                     item.update({
                         "live_price": round(live["price"], 2),
