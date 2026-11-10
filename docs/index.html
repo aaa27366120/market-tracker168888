@@ -78,7 +78,7 @@ footer{color:var(--mute);font-size:.8rem;padding:6px 0 20px}
   <div id="market-analysis" class="grid"></div>
 </section>
 <details><summary>規則說明</summary>
-<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所「每日市場成交資訊」的成交金額（億元），統計口徑可能與新聞常引用的集中市場成交金額不同，量比使用同一來源的連續資料；期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝盤後加一般盤合併（高低點取極值、成交量相加，收盤取一般盤收盤），早上若夜盤已結束而日盤未開，會顯示盤後最新價。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。台指期兩張卡片有兩種價格來源：「網頁報價」來自第三方網頁（近月＝玩股網、全＝Yahoo 奇摩），是盤中參考價，可能延遲，也不是官方資料；「官方資料」來自期交所開放資料，只在收盤後公布。網頁報價抓取失敗時，卡片會改顯示官方資料並說明原因；官方資料出來後一律以官方為準。台指期（全）會顯示夜盤對日盤收盤的差（點數與百分比）。加權指數的「收盤核對」會在收盤後拿 Yahoo 收盤價和證交所公布值比對，差距超過 0.05% 會標示異常。市場分析中標示「含盤中」代表最新一根日線尚未收盤，指標可能在收盤後變動。市場分析各項目的價格與漲跌，取自同一份行情資料。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每 30 分鐘、美股交易時段約每 2 小時，另有收盤後的最終更新（GitHub 排程可能延遲）。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p></details>
+<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所「每日市場成交資訊」的成交金額（億元），統計口徑可能與新聞常引用的集中市場成交金額不同，量比使用同一來源的連續資料；期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝只顯示期交所夜盤資料，不與日盤合併；夜盤結束後，白天保留最近一次夜盤收盤價，標題會註明夜盤。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。若資料抓取失敗，保留最後成功數值並顯示原始資料日期，不會以網站更新時間冒充行情時間。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。台指期日盤與夜盤均以期交所官方資料分開呈現；本站不再使用無法穩定解析的第三方網頁報價。加權指數盤中快照使用證交所 MI_5MINS_INDEX，排程每 30 分鐘嘗試更新；這是定時擷取快照，不保證準點或即時推播。收盤價以證交所 FMTQIK 正式資料為準，Yahoo 日線僅作歷史分析備援。加權指數的「收盤核對」會在收盤後拿 Yahoo 收盤價和證交所公布值比對，差距超過 0.05% 會標示異常。市場分析中標示「含盤中」代表最新一根日線尚未收盤，指標可能在收盤後變動。市場分析各項目的價格與漲跌，取自同一份行情資料。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每 30 分鐘、美股交易時段約每 2 小時，另有收盤後的最終更新（GitHub 排程可能延遲）。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p></details>
 <footer>資料來自證交所與公開行情來源,可能有延遲或誤差,以官方公告為準。本頁僅為資訊整理,不構成任何投資建議;每個人的資金與風險承受度不同,請自行判斷。</footer>
 </main>
 <script>
@@ -127,11 +127,18 @@ function marketAnalysis(m){
 }
 function card(i){
   if(i.error)return `<div class="card"><div class="name">${i.name}</div><span class="chip break">資料不可用</span><p class="text">${i.error}，稍後會再試。</p>${links(i)}</div>`;
-  const c=i.chg>=0?"up":"dn";
+  const showLive=i.sym==="^TWII"&&i.live_date===new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Taipei"})&&i.live_price!=null&&i.live_status!=="closed";
+  const shownPrice=showLive?i.live_price:i.close;
+  const shownChg=showLive?i.live_chg:i.chg;
+  const c=shownChg>=0?"up":"dn";
+  const liveMeta=showLive?`<div class="meta"><span>證交所盤中快照</span><span>${i.live_date} ${i.live_time||""}</span></div>`:"";
+  const closeMeta=i.close_status_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${i.close_status_note}</p>`:"";
+  const liveError=i.live_status==="failed"?`<p class="text" style="color:var(--break);font-size:.74rem">盤中資料更新失敗；最後成功時間：${i.live_date||"無"} ${i.live_time||""}；${i.live_error||""}</p>`:"";
   return `<div class="card"><div class="name">${i.name}${tag(i)}</div>
-  <div class="pr"><span class="price">${f(i.close)}</span><span class="chg ${c}">${sg(i.chg)}</span></div>
-  ${i.price_source?`<div class="meta"><span>${i.price_source}</span><span>${i.price_time||""}</span></div>`:""}
-  <span class="chip ${i.level}">${LV[i.level]||"一般"}</span><p class="text">${i.text}</p>${i.web_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${i.web_note}</p>`:""}${i.stale?`<p class="text">⚠ 行情更新失敗，以下為舊資料；原始日期 ${i.date||"未知"}</p>`:""}
+  <div class="pr"><span class="price">${f(shownPrice)}</span><span class="chg ${c}">${sg(shownChg)}</span></div>
+  ${liveMeta}${i.price_source?`<div class="meta"><span>${i.price_source}</span><span>${i.price_time||""}</span></div>`:""}
+  ${closeMeta}${liveError}
+  <span class="chip ${i.level}">${LV[i.level]||"一般"}</span><p class="text">${i.text}</p>${i.stale?`<p class="text">⚠ 行情更新失敗，以下為舊資料；最後成功資料日期：${i.last_success_date||i.date||"未知"}</p>`:""}
   <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div>${row("對日盤收盤",i.vs_day_pts==null?null:(i.vs_day_pts>0?"+":"")+f(i.vs_day_pts,0)+" 點（"+sg(i.vs_day_pct)+"）")}${row("成交量",vol(i))}${row("收盤核對",xc(i))}${row("未平倉",i.oi==null?null:f(i.oi,0)+" 口")}${row("距季線",i.vs_ma60==null?null:sg(i.vs_ma60))}${row("一年高點回落",i.drawdown==null?null:f(i.drawdown,1)+"%")}${row("回落觀察",i.drawdown_status)}</div>
   ${spark(i.spark,i.support)}<div class="meta"><span>支撐 ${f(i.support)}</span><span>${i.date.slice(5)}</span></div>${links(i)}</div>`;
 }
