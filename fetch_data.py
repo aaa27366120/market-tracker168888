@@ -454,10 +454,16 @@ def quote_age_hours(qt: str, now: dt.datetime | None) -> float:
 
 
 def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None, ok: bool,
-             web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> dict[str, Any]:
+             web: dict[str, Any] | None = None, now: dt.datetime | None = None,
+             freshness_error: str | None = None) -> dict[str, Any]:
     if not hist:
-        return {"sym": sym, "name": name, "error": "尚無可用的期交所官方資料",
-                "stale": True, "data_status": "unavailable"}
+        return {
+            "sym": sym, "name": name,
+            "error": freshness_error or "尚無可用的期交所官方資料",
+            "fetch_error": freshness_error,
+            "stale": True,
+            "data_status": "failed" if freshness_error else "unavailable",
+        }
     last = hist[-1]
     prior = hist[:-1][-SUPPORT_DAYS:]
     lows = [x["low"] for x in prior if x.get("low") is not None]
@@ -497,7 +503,7 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
         item["text"] = f"歷史資料累積中（{len(hist)}/60 天）"
     if not ok:
         item["text"] = f"期交所資料更新失敗，顯示舊資料（最後成功日期：{last['date']}）"
-        item["fetch_error"] = "本次期交所官方資料未成功取得"
+        item["fetch_error"] = freshness_error or "本次期交所官方資料未成功取得"
     if is_night:
         item["session_note"] = (
             "此卡只顯示期交所已公布的最近夜盤資料，不含日盤；"
@@ -506,28 +512,98 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
     return item
 
 
+def _previous_weekday(day: dt.date) -> dt.date:
+    day -= dt.timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= dt.timedelta(days=1)
+    return day
+
+
+def _next_weekday(day: dt.date) -> dt.date:
+    day += dt.timedelta(days=1)
+    while day.weekday() >= 5:
+        day += dt.timedelta(days=1)
+    return day
+
+
+def expected_futures_dates(now: dt.datetime) -> dict[str, str] | None:
+    """Expected latest published TAIFEX dates for day/night sessions.
+
+    TAIFEX assigns the after-hours session to its next trading date. At the
+    morning publication window, the day session is the previous weekday while
+    the night session is today's trading date (Monday after a Friday night).
+    This weekday-only helper does not yet account for exchange holidays.
+    """
+    local = now.astimezone(TZ_TAIPEI)
+    if local.time() < dt.time(7, 0):
+        return None
+    today = local.date()
+    if local.time() >= dt.time(16, 0):
+        day_date = today if today.weekday() < 5 else _previous_weekday(today)
+        night_date = day_date
+    elif dt.time(7, 0) <= local.time() < dt.time(9, 0):
+        day_date = _previous_weekday(today)
+        night_date = today if today.weekday() < 5 else _next_weekday(today)
+    else:
+        return None
+    return {"TX": day_date.isoformat(), "TXALL": night_date.isoformat()}
+
+
 def update_futures(hist: dict[str, Any], fetch: bool = True,
-                   web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
+                   web: dict[str, Any] | None = None, now: dt.datetime | None = None,
+                   previous_items: dict[str, dict[str, Any]] | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
     hist = {k: list(v) for k, v in (hist or {}).items()}
     # 舊版 TXALL 是日夜盤混合值，沒有 session 標記，不能再當作夜盤歷史。
     hist["TXALL"] = [x for x in hist.get("TXALL", []) if x.get("session") == "night"]
-    ok = True
+    records: dict[str, list[dict[str, Any]]] = {"TX": [], "TXALL": []}
+    errors: dict[str, str | None] = {"TX": None, "TXALL": None}
     try:
         by = tx_rows() if fetch else {}
-        ok = bool(by) or not fetch
-        if by:
-            records = fut_records(by)
-            for key in ("TX", "TXALL"):
+        if fetch:
+            records = fut_records(by) if by else {"TX": [], "TXALL": []}
+        for key in ("TX", "TXALL"):
+            session_records = records.get(key, [])
+            if fetch and not session_records:
+                errors[key] = "期交所本次回應未包含此交易時段資料"
+            if session_records:
                 merged = {x["date"]: x for x in hist.get(key, [])}
-                merged.update({x["date"]: x for x in records.get(key, [])})
+                merged.update({x["date"]: x for x in session_records})
                 hist[key] = [merged[d] for d in sorted(merged)][-130:]
+            # DailyMarketReportFut 的夜盤日期依期交所交易日歸屬規則標示。
+            # 此資料約於夜盤結束後 07:00 產製；在可預期的工作日更新窗口，
+            # 必須確認每個時段都已取得當日資料，不能用另一時段的成功掩蓋缺漏。
+            if fetch and session_records and now is not None:
+                expected = expected_futures_dates(now)
+                expected_date = expected.get(key) if expected else None
+                if expected_date:
+                    latest_date = max(x.get("date", "") for x in session_records)
+                    if latest_date < expected_date:
+                        errors[key] = (
+                            f"期交所{'夜盤' if key == 'TXALL' else '日盤'}資料日期為 "
+                            f"{latest_date or '未知'}，預期 {expected_date}"
+                        )
     except Exception as exc:
-        ok = False
+        for key in ("TX", "TXALL"):
+            errors[key] = f"期交所資料更新失敗：{exc}"
         print(f"台指期更新失敗：{exc}")
-    items = [
-        fut_item("TX", "台指期（近月）", hist.get("TX", []), None, ok, None, now),
-        fut_item("TXALL", "台指期（全）・夜盤", hist.get("TXALL", []), None, ok, None, now),
-    ]
+
+    items = []
+    previous_items = previous_items or {}
+    for key, name in (("TX", "台指期（近月）"), ("TXALL", "台指期（全）・夜盤")):
+        # 非更新時段沿用上一輪的失敗狀態；不能因 fetch=False 就把舊資料洗成成功。
+        if not fetch:
+            previous = previous_items.get(key) or {}
+            if previous.get("stale") or previous.get("data_status") == "failed":
+                errors[key] = (
+                    previous.get("fetch_error")
+                    or previous.get("error")
+                    or "上次期交所資料更新失敗，等待下一次官方資料更新"
+                )
+        ok = errors[key] is None
+        items.append(fut_item(
+            key, name, hist.get(key, []), None, ok, None, now,
+            freshness_error=errors[key],
+        ))
     return hist, items
 
 
@@ -833,9 +909,20 @@ def main(now_utc: dt.datetime | None = None) -> None:
     close_fetch_failed = bool(turnover_due and not close_official_today)
 
     hist0 = previous.get("fut_hist", {})
-    fut_allowed = (now.weekday() < 5 and now.time() >= dt.time(14, 0)) or pre_market
-    # 日盤資料今天已更新，不代表稍後的夜盤也已更新；允許時段每次工作流程執行都重新查詢期交所。
-    fut_hist, fut_items = update_futures(hist0, manual or fut_allowed, now=now)
+    # 期交所每日行情約於日盤收盤後 16:00、夜盤收盤後 07:00 產製；
+    # 14:07 / 06:07 的排程早於資料產製時間，不應以舊回應覆蓋新鮮度狀態。
+    fut_allowed = (
+        (now.weekday() < 5 and now.time() >= dt.time(16, 0))
+        or (now.weekday() <= 5 and dt.time(7, 0) <= now.time() < dt.time(9, 0))
+    )
+    # 日盤與夜盤分別檢查日期；其中一個時段更新成功，不代表另一個時段也已更新。
+    fut_hist, fut_items = update_futures(
+        hist0, manual or fut_allowed, now=now,
+        previous_items={
+            x.get("sym"): x for x in previous.get("items", [])
+            if isinstance(x, dict) and x.get("sym") in ("TX", "TXALL")
+        },
+    )
 
     prev_foreign = previous.get("foreign", [])
     if need(prev_foreign[-1].get("date") if prev_foreign else None, post_close):
