@@ -856,8 +856,13 @@ def main(now_utc: dt.datetime | None = None) -> None:
     close_fetch_failed = bool(turnover_due and not close_official_today)
 
     hist0 = previous.get("fut_hist", {})
-    fut_allowed = (now.weekday() < 5 and now.time() >= dt.time(14, 0)) or pre_market
-    # 日盤資料今天已更新，不代表稍後的夜盤也已更新；允許時段每次工作流程執行都重新查詢期交所。
+    # 期交所每日行情約於日盤收盤後 16:00、夜盤收盤後 07:00 產製；
+    # 14:07 / 06:07 的排程早於資料產製時間，不應以舊回應覆蓋新鮮度狀態。
+    fut_allowed = now.weekday() < 5 and (
+        now.time() >= dt.time(16, 0)
+        or dt.time(7, 0) <= now.time() < dt.time(9, 0)
+    )
+    # 日盤與夜盤分別檢查日期；其中一個時段更新成功，不代表另一個時段也已更新。
     fut_hist, fut_items = update_futures(hist0, manual or fut_allowed, now=now)
 
     prev_foreign = previous.get("foreign", [])
