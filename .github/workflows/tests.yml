@@ -1,11 +1,7 @@
 name: Market Tracker tests
 
 on:
-  pull_request:
-    paths:
-      - "fetch_data.py"
-      - "tests/**"
-      - ".github/workflows/tests.yml"
+  pull_request: {}
   workflow_dispatch: {}
 
 permissions:
