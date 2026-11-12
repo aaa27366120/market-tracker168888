@@ -550,7 +550,8 @@ def expected_futures_dates(now: dt.datetime) -> dict[str, str] | None:
 
 
 def update_futures(hist: dict[str, Any], fetch: bool = True,
-                   web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
+                   web: dict[str, Any] | None = None, now: dt.datetime | None = None,
+                   previous_items: dict[str, dict[str, Any]] | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
     hist = {k: list(v) for k, v in (hist or {}).items()}
     # 舊版 TXALL 是日夜盤混合值，沒有 session 標記，不能再當作夜盤歷史。
     hist["TXALL"] = [x for x in hist.get("TXALL", []) if x.get("session") == "night"]
@@ -576,7 +577,7 @@ def update_futures(hist: dict[str, Any], fetch: bool = True,
                 expected_date = expected.get(key) if expected else None
                 if expected_date:
                     latest_date = max(x.get("date", "") for x in session_records)
-                    if latest_date != expected_date:
+                    if latest_date < expected_date:
                         errors[key] = (
                             f"期交所{'夜盤' if key == 'TXALL' else '日盤'}資料日期為 "
                             f"{latest_date or '未知'}，預期 {expected_date}"
@@ -587,8 +588,18 @@ def update_futures(hist: dict[str, Any], fetch: bool = True,
         print(f"台指期更新失敗：{exc}")
 
     items = []
+    previous_items = previous_items or {}
     for key, name in (("TX", "台指期（近月）"), ("TXALL", "台指期（全）・夜盤")):
-        ok = not fetch or errors[key] is None
+        # 非更新時段沿用上一輪的失敗狀態；不能因 fetch=False 就把舊資料洗成成功。
+        if not fetch:
+            previous = previous_items.get(key) or {}
+            if previous.get("stale") or previous.get("data_status") == "failed":
+                errors[key] = (
+                    previous.get("fetch_error")
+                    or previous.get("error")
+                    or "上次期交所資料更新失敗，等待下一次官方資料更新"
+                )
+        ok = errors[key] is None
         items.append(fut_item(
             key, name, hist.get(key, []), None, ok, None, now,
             freshness_error=errors[key],
@@ -905,7 +916,13 @@ def main(now_utc: dt.datetime | None = None) -> None:
         or (now.weekday() <= 5 and dt.time(7, 0) <= now.time() < dt.time(9, 0))
     )
     # 日盤與夜盤分別檢查日期；其中一個時段更新成功，不代表另一個時段也已更新。
-    fut_hist, fut_items = update_futures(hist0, manual or fut_allowed, now=now)
+    fut_hist, fut_items = update_futures(
+        hist0, manual or fut_allowed, now=now,
+        previous_items={
+            x.get("sym"): x for x in previous.get("items", [])
+            if isinstance(x, dict) and x.get("sym") in ("TX", "TXALL")
+        },
+    )
 
     prev_foreign = previous.get("foreign", [])
     if need(prev_foreign[-1].get("date") if prev_foreign else None, post_close):
