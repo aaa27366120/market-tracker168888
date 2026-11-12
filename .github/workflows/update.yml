@@ -23,6 +23,8 @@ jobs:
           python-version: "3.12"
       - name: 安裝依賴
         run: pip install yfinance pandas requests
+      - name: 執行期貨資料新鮮度回歸測試
+        run: python -m unittest discover -s tests -v
       - name: 更新市場資料
         run: python fetch_data.py
       - name: 驗證資料檔
