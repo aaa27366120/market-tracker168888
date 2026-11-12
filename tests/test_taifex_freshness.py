@@ -41,6 +41,15 @@ class TaifexFreshnessTests(unittest.TestCase):
         self.assertEqual(by_symbol["TXALL"]["data_status"], "failed")
         self.assertIn("未包含此交易時段", by_symbol["TXALL"]["fetch_error"])
 
+    def test_monday_morning_uses_friday_day_session_and_monday_night_date(self):
+        saturday_morning = dt.datetime(
+            2026, 11, 14, 7, 10, tzinfo=fetch_data.TZ_TAIPEI
+        )
+        self.assertEqual(
+            fetch_data.expected_futures_dates(saturday_morning),
+            {"TX": "2026-11-13", "TXALL": "2026-11-16"},
+        )
+
     def test_old_session_date_is_marked_stale(self):
         old_night = [{
             **self.records["TXALL"][0],
