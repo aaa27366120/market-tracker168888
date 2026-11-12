@@ -457,8 +457,13 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
              web: dict[str, Any] | None = None, now: dt.datetime | None = None,
              freshness_error: str | None = None) -> dict[str, Any]:
     if not hist:
-        return {"sym": sym, "name": name, "error": "尚無可用的期交所官方資料",
-                "stale": True, "data_status": "unavailable"}
+        return {
+            "sym": sym, "name": name,
+            "error": freshness_error or "尚無可用的期交所官方資料",
+            "fetch_error": freshness_error,
+            "stale": True,
+            "data_status": "failed" if freshness_error else "unavailable",
+        }
     last = hist[-1]
     prior = hist[:-1][-SUPPORT_DAYS:]
     lows = [x["low"] for x in prior if x.get("low") is not None]
