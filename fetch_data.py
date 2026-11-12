@@ -454,7 +454,8 @@ def quote_age_hours(qt: str, now: dt.datetime | None) -> float:
 
 
 def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None, ok: bool,
-             web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> dict[str, Any]:
+             web: dict[str, Any] | None = None, now: dt.datetime | None = None,
+             freshness_error: str | None = None) -> dict[str, Any]:
     if not hist:
         return {"sym": sym, "name": name, "error": "尚無可用的期交所官方資料",
                 "stale": True, "data_status": "unavailable"}
@@ -497,7 +498,7 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
         item["text"] = f"歷史資料累積中（{len(hist)}/60 天）"
     if not ok:
         item["text"] = f"期交所資料更新失敗，顯示舊資料（最後成功日期：{last['date']}）"
-        item["fetch_error"] = "本次期交所官方資料未成功取得"
+        item["fetch_error"] = freshness_error or "本次期交所官方資料未成功取得"
     if is_night:
         item["session_note"] = (
             "此卡只顯示期交所已公布的最近夜盤資料，不含日盤；"
@@ -511,23 +512,45 @@ def update_futures(hist: dict[str, Any], fetch: bool = True,
     hist = {k: list(v) for k, v in (hist or {}).items()}
     # 舊版 TXALL 是日夜盤混合值，沒有 session 標記，不能再當作夜盤歷史。
     hist["TXALL"] = [x for x in hist.get("TXALL", []) if x.get("session") == "night"]
-    ok = True
+    records: dict[str, list[dict[str, Any]]] = {"TX": [], "TXALL": []}
+    errors: dict[str, str | None] = {"TX": None, "TXALL": None}
     try:
         by = tx_rows() if fetch else {}
-        ok = bool(by) or not fetch
-        if by:
-            records = fut_records(by)
-            for key in ("TX", "TXALL"):
+        if fetch:
+            records = fut_records(by) if by else {"TX": [], "TXALL": []}
+        for key in ("TX", "TXALL"):
+            session_records = records.get(key, [])
+            if fetch and not session_records:
+                errors[key] = "期交所本次回應未包含此交易時段資料"
+            if session_records:
                 merged = {x["date"]: x for x in hist.get(key, [])}
-                merged.update({x["date"]: x for x in records.get(key, [])})
+                merged.update({x["date"]: x for x in session_records})
                 hist[key] = [merged[d] for d in sorted(merged)][-130:]
+            # DailyMarketReportFut 的夜盤日期依期交所交易日歸屬規則標示。
+            # 此資料約於夜盤結束後 07:00 產製；在可預期的工作日更新窗口，
+            # 必須確認每個時段都已取得當日資料，不能用另一時段的成功掩蓋缺漏。
+            if fetch and session_records and now is not None:
+                local = now.astimezone(TZ_TAIPEI)
+                expected_date = local.strftime("%Y-%m-%d")
+                if local.weekday() < 5 and local.time() >= dt.time(7, 0):
+                    latest_date = max(x.get("date", "") for x in session_records)
+                    if latest_date != expected_date:
+                        errors[key] = (
+                            f"期交所{ '夜盤' if key == 'TXALL' else '日盤' }資料日期為 "
+                            f"{latest_date or '未知'}，預期 {expected_date}"
+                        )
     except Exception as exc:
-        ok = False
+        for key in ("TX", "TXALL"):
+            errors[key] = f"期交所資料更新失敗：{exc}"
         print(f"台指期更新失敗：{exc}")
-    items = [
-        fut_item("TX", "台指期（近月）", hist.get("TX", []), None, ok, None, now),
-        fut_item("TXALL", "台指期（全）・夜盤", hist.get("TXALL", []), None, ok, None, now),
-    ]
+
+    items = []
+    for key, name in (("TX", "台指期（近月）"), ("TXALL", "台指期（全）・夜盤")):
+        ok = not fetch or errors[key] is None
+        items.append(fut_item(
+            key, name, hist.get(key, []), None, ok, None, now,
+            freshness_error=errors[key],
+        ))
     return hist, items
 
 
