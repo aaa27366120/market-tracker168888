@@ -512,6 +512,43 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
     return item
 
 
+def _previous_weekday(day: dt.date) -> dt.date:
+    day -= dt.timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= dt.timedelta(days=1)
+    return day
+
+
+def _next_weekday(day: dt.date) -> dt.date:
+    day += dt.timedelta(days=1)
+    while day.weekday() >= 5:
+        day += dt.timedelta(days=1)
+    return day
+
+
+def expected_futures_dates(now: dt.datetime) -> dict[str, str] | None:
+    """Expected latest published TAIFEX dates for day/night sessions.
+
+    TAIFEX assigns the after-hours session to its next trading date. At the
+    morning publication window, the day session is the previous weekday while
+    the night session is today's trading date (Monday after a Friday night).
+    This weekday-only helper does not yet account for exchange holidays.
+    """
+    local = now.astimezone(TZ_TAIPEI)
+    if local.time() < dt.time(7, 0):
+        return None
+    today = local.date()
+    if local.time() >= dt.time(16, 0):
+        day_date = today if today.weekday() < 5 else _previous_weekday(today)
+        night_date = day_date
+    elif dt.time(7, 0) <= local.time() < dt.time(9, 0):
+        day_date = _previous_weekday(today)
+        night_date = today if today.weekday() < 5 else _next_weekday(today)
+    else:
+        return None
+    return {"TX": day_date.isoformat(), "TXALL": night_date.isoformat()}
+
+
 def update_futures(hist: dict[str, Any], fetch: bool = True,
                    web: dict[str, Any] | None = None, now: dt.datetime | None = None) -> tuple[dict[str, list], list[dict[str, Any]]]:
     hist = {k: list(v) for k, v in (hist or {}).items()}
@@ -535,13 +572,13 @@ def update_futures(hist: dict[str, Any], fetch: bool = True,
             # 此資料約於夜盤結束後 07:00 產製；在可預期的工作日更新窗口，
             # 必須確認每個時段都已取得當日資料，不能用另一時段的成功掩蓋缺漏。
             if fetch and session_records and now is not None:
-                local = now.astimezone(TZ_TAIPEI)
-                expected_date = local.strftime("%Y-%m-%d")
-                if local.weekday() < 5 and local.time() >= dt.time(7, 0):
+                expected = expected_futures_dates(now)
+                expected_date = expected.get(key) if expected else None
+                if expected_date:
                     latest_date = max(x.get("date", "") for x in session_records)
                     if latest_date != expected_date:
                         errors[key] = (
-                            f"期交所{ '夜盤' if key == 'TXALL' else '日盤' }資料日期為 "
+                            f"期交所{'夜盤' if key == 'TXALL' else '日盤'}資料日期為 "
                             f"{latest_date or '未知'}，預期 {expected_date}"
                         )
     except Exception as exc:
@@ -863,9 +900,9 @@ def main(now_utc: dt.datetime | None = None) -> None:
     hist0 = previous.get("fut_hist", {})
     # 期交所每日行情約於日盤收盤後 16:00、夜盤收盤後 07:00 產製；
     # 14:07 / 06:07 的排程早於資料產製時間，不應以舊回應覆蓋新鮮度狀態。
-    fut_allowed = now.weekday() < 5 and (
-        now.time() >= dt.time(16, 0)
-        or dt.time(7, 0) <= now.time() < dt.time(9, 0)
+    fut_allowed = (
+        (now.weekday() < 5 and now.time() >= dt.time(16, 0))
+        or (now.weekday() <= 5 and dt.time(7, 0) <= now.time() < dt.time(9, 0))
     )
     # 日盤與夜盤分別檢查日期；其中一個時段更新成功，不代表另一個時段也已更新。
     fut_hist, fut_items = update_futures(hist0, manual or fut_allowed, now=now)
