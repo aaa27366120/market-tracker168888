@@ -1,0 +1,51 @@
+name: update-official-stock-data
+
+on:
+  schedule:
+    # 台灣時間週一至週五 18:37；避開整點，GitHub 排程可能延遲。
+    - cron: "37 10 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-official-stock-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安裝依賴
+        run: python -m pip install requests
+      - name: 更新上市、上櫃官方個股行情
+        run: python stock_data.py
+      - name: 驗證資料檔
+        run: |
+          python - <<'PY'
+          import json
+          with open("docs/stocks.json", encoding="utf-8") as f:
+              data = json.load(f)
+          assert data.get("update_status") in ("success", "partial"), "上市與上櫃資料均更新失敗"
+          markets = data.get("markets", {})
+          for market in ("listed", "otc"):
+              item = markets.get(market, {})
+              if item.get("status") == "success":
+                  assert item.get("trading_date"), f"{market} 缺少交易日期"
+                  assert item.get("count", 0) >= (500 if market == "listed" else 300), f"{market} 行情筆數不足"
+                  assert item.get("items"), f"{market} 行情清單為空"
+              else:
+                  print(f"WARNING: {market} 更新失敗，保留最後成功資料：{item.get('last_success_date')}")
+          print(f"官方個股資料驗證完成：{data.get('successful_markets')}/{data.get('total_markets')} 市場成功")
+          PY
+      - name: 提交資料快照
+        run: |
+          git config user.name "market-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/stocks.json
+          git diff --staged --quiet || (git commit -m "update official Taiwan stock data" && git push)
