@@ -1,5 +1,8 @@
 import datetime as dt
+import unittest
+from unittest.mock import MagicMock, patch
 
+import fetch_data
 from fetch_data import fut_records, parse_twse_intraday_csv, parse_twse_mis_intraday, signed_num
 
 
@@ -80,3 +83,78 @@ def test_twse_mis_intraday_parser_rejects_stale_date():
         assert "日期不符" in str(exc)
     else:
         raise AssertionError("stale MIS date must be rejected")
+
+
+
+class TestFetchTwseIntradayFlow(unittest.TestCase):
+    def setUp(self):
+        self.now = dt.datetime(2026, 11, 13, 10, 30, tzinfo=dt.timezone(dt.timedelta(hours=8)))
+        self.landing = MagicMock()
+        self.landing.raise_for_status.return_value = None
+
+    def response(self, payload=None, text="", content=b""):
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response.content = content or (text.encode("utf-8") if text else b'{"msgArray":[]}')
+        response.encoding = "utf-8"
+        response.text = text
+        response.json.return_value = payload if payload is not None else {}
+        response.raise_for_status.return_value = None
+        return response
+
+    def test_mis_success_does_not_call_csv(self):
+        mis = self.response({
+            "rtcode": "0000",
+            "msgArray": [{"c": "t00", "d": "20261113", "t": "10:30:05", "z": "42711.92"}],
+        })
+        session = MagicMock()
+        session.get.side_effect = [self.landing, mis]
+        with patch("fetch_data.requests.Session", return_value=session), \
+             patch("fetch_data.retry", side_effect=lambda fn, *a, **kw: fn(*a, **kw)), \
+             patch("fetch_data.requests.get") as csv_get:
+            result = fetch_data.fetch_twse_intraday(self.now)
+        self.assertEqual(result["source"], "證交所 MIS 即時指數")
+        self.assertEqual(result["price"], 42711.92)
+        csv_get.assert_not_called()
+        session.close.assert_called_once()
+
+    def test_mis_failure_csv_success_uses_fallback(self):
+        mis = self.response({"rtcode": "0001", "msgArray": []})
+        csv = self.response(text='時間,發行量加權股價指數\n=10:30:00,"42,711.92"\n')
+        session = MagicMock()
+        session.get.side_effect = [self.landing, mis]
+        with patch("fetch_data.requests.Session", return_value=session), \
+             patch("fetch_data.retry", side_effect=lambda fn, *a, **kw: fn(*a, **kw)), \
+             patch("fetch_data.requests.get", return_value=csv):
+            result = fetch_data.fetch_twse_intraday(self.now)
+        self.assertEqual(result["source"], "證交所 MI_5MINS_INDEX（備援）")
+        self.assertEqual(result["price"], 42711.92)
+
+    def test_both_sources_fail_includes_both_errors(self):
+        mis = self.response({"rtcode": "0001", "msgArray": []})
+        csv = self.response(text="invalid csv")
+        csv.raise_for_status.side_effect = None
+        session = MagicMock()
+        session.get.side_effect = [self.landing, mis]
+        with patch("fetch_data.requests.Session", return_value=session), \
+             patch("fetch_data.retry", side_effect=lambda fn, *a, **kw: fn(*a, **kw)), \
+             patch("fetch_data.requests.get", return_value=csv):
+            with self.assertRaises(RuntimeError) as caught:
+                fetch_data.fetch_twse_intraday(self.now)
+        self.assertIn("MIS：", str(caught.exception))
+        self.assertIn("CSV：", str(caught.exception))
+
+    def test_mis_dash_price_is_rejected_and_csv_fallback_used(self):
+        mis = self.response({
+            "rtcode": "0000",
+            "msgArray": [{"c": "t00", "d": "20261113", "t": "10:30:05", "z": "-"}],
+        })
+        csv = self.response(text='時間,發行量加權股價指數\n=10:30:00,"42,711.92"\n')
+        session = MagicMock()
+        session.get.side_effect = [self.landing, mis]
+        with patch("fetch_data.requests.Session", return_value=session), \
+             patch("fetch_data.retry", side_effect=lambda fn, *a, **kw: fn(*a, **kw)), \
+             patch("fetch_data.requests.get", return_value=csv):
+            result = fetch_data.fetch_twse_intraday(self.now)
+        self.assertEqual(result["source"], "證交所 MI_5MINS_INDEX（備援）")
