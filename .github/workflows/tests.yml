@@ -21,6 +21,51 @@ jobs:
         run: python -m py_compile fetch_data.py stock_data.py
       - name: 執行單元測試
         run: python -m unittest discover -s tests -v
+      - name: TWSE MIS 加權指數非阻擋式 smoke test
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import requests
+
+          url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
+          headers = {
+              "User-Agent": "Mozilla/5.0 market-tracker/1.0",
+              "Referer": "https://mis.twse.com.tw/stock/index.jsp",
+              "Accept": "application/json, text/plain, */*",
+          }
+          try:
+              with requests.Session() as session:
+                  landing = session.get(
+                      "https://mis.twse.com.tw/stock/index.jsp",
+                      headers=headers, timeout=20
+                  )
+                  landing.raise_for_status()
+                  response = session.get(
+                      url,
+                      params={"ex_ch": "tse_t00.tw", "json": "1", "delay": "0"},
+                      headers=headers, timeout=20
+                  )
+                  print(f"TWSE MIS HTTP status: {response.status_code}")
+                  response.raise_for_status()
+                  payload = response.json()
+                  rows = payload.get("msgArray") or []
+                  print(f"TWSE MIS msgArray empty: {not bool(rows)}")
+                  row = next(
+                      (item for item in rows if str(item.get("c", "")).lower() in ("t00", "tse_t00")),
+                      rows[0] if rows else None
+                  )
+                  if row:
+                      print(
+                          "TWSE MIS t00: "
+                          f"d={row.get('d')}; t={row.get('t')}; "
+                          f"z={row.get('z')}; y={row.get('y')}"
+                      )
+                  else:
+                      print("::warning::TWSE MIS smoke test returned an empty msgArray")
+          except Exception as exc:
+              print(f"::warning::TWSE MIS smoke test unavailable/failed: {type(exc).__name__}: {exc}")
+          PY
+
       - name: 官方 API 非阻擋式 smoke test
         continue-on-error: true
         run: |
