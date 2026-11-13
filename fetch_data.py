@@ -527,20 +527,13 @@ def _previous_weekday(day: dt.date) -> dt.date:
     return day
 
 
-def _next_weekday(day: dt.date) -> dt.date:
-    day += dt.timedelta(days=1)
-    while day.weekday() >= 5:
-        day += dt.timedelta(days=1)
-    return day
-
-
 def expected_futures_dates(now: dt.datetime) -> dict[str, str] | None:
-    """Expected latest TAIFEX session dates during scheduled publication windows.
+    """依期交所每日行情 API 的資料發布時點判斷日盤、夜盤預期日期。
 
-    DailyMarketReportFut Date labels the calendar date on which the night
-    session opened. On Tue-Fri mornings the latest completed night session is
-    dated the previous weekday; Monday morning is the Sunday-opened session
-    and is assigned Monday. Exchange holidays are not modeled here.
+    期交所 API 約在日盤結束後（下午）才一起放出當天的日盤與夜盤資料；
+    夜盤日期是交易量的「歸屬日」，不是夜盤開盤的日曆日期。
+    因此早上 07:00–09:00 窗口，日盤與夜盤預期日期相同，都是前一個工作日。
+    16:00 後則預期當天（週末回推至前一個工作日）。休市日曆尚未建模。
     """
     local = now.astimezone(TZ_TAIPEI)
     if local.time() < dt.time(7, 0):
@@ -550,8 +543,7 @@ def expected_futures_dates(now: dt.datetime) -> dict[str, str] | None:
         session_date = today if today.weekday() < 5 else _previous_weekday(today)
         day_date = night_date = session_date
     elif dt.time(7, 0) <= local.time() < dt.time(9, 0):
-        day_date = _previous_weekday(today)
-        night_date = today if today.weekday() == 0 else _previous_weekday(today)
+        day_date = night_date = _previous_weekday(today)
     else:
         return None
     return {"TX": day_date.isoformat(), "TXALL": night_date.isoformat()}
