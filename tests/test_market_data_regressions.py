@@ -5,18 +5,32 @@ import fetch_data
 
 
 class FuturesDateTests(unittest.TestCase):
-    def test_friday_morning_night_session_is_thursday_opened_session(self):
-        now = dt.datetime(2026, 11, 13, 9, 7, tzinfo=fetch_data.TZ_TAIPEI)
+    def test_friday_morning_uses_thursday_for_both_sessions(self):
+        now = dt.datetime(2026, 11, 13, 8, 7, tzinfo=fetch_data.TZ_TAIPEI)
         self.assertEqual(
             fetch_data.expected_futures_dates(now),
             {"TX": "2026-11-12", "TXALL": "2026-11-12"},
         )
 
-    def test_monday_morning_night_session_uses_monday_trading_date(self):
+    def test_monday_morning_uses_previous_friday_for_both_sessions(self):
         now = dt.datetime(2026, 11, 16, 8, 7, tzinfo=fetch_data.TZ_TAIPEI)
         self.assertEqual(
             fetch_data.expected_futures_dates(now),
-            {"TX": "2026-11-13", "TXALL": "2026-11-16"},
+            {"TX": "2026-11-13", "TXALL": "2026-11-13"},
+        )
+
+    def test_tuesday_morning_uses_previous_monday_for_both_sessions(self):
+        now = dt.datetime(2026, 11, 17, 8, 7, tzinfo=fetch_data.TZ_TAIPEI)
+        self.assertEqual(
+            fetch_data.expected_futures_dates(now),
+            {"TX": "2026-11-16", "TXALL": "2026-11-16"},
+        )
+
+    def test_saturday_morning_uses_friday_for_both_sessions(self):
+        now = dt.datetime(2026, 11, 14, 7, 10, tzinfo=fetch_data.TZ_TAIPEI)
+        self.assertEqual(
+            fetch_data.expected_futures_dates(now),
+            {"TX": "2026-11-13", "TXALL": "2026-11-13"},
         )
 
     def test_after_close_uses_current_weekday_for_both_sessions(self):
