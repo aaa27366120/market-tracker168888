@@ -87,7 +87,7 @@ class StockDataTests(unittest.TestCase):
             path = os.path.join(directory, "stocks.json")
             previous = {"schema_version": 1, "markets": {
                 "listed": {"trading_date": "2026-11-11", "status": "success",
-                           "count": 501, "items": [{"symbol": "2330", "close": 1000}]},
+                           "count": 1000, "items": [{"symbol": "2330", "close": 1000}]},
                 "otc": {"trading_date": "2026-11-11", "status": "success",
                         "count": 301, "items": [{"symbol": "6488", "close": 100}]},
             }}
