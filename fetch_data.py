@@ -260,6 +260,27 @@ def parse_twse_mis_intraday(payload: dict[str, Any], expected_date: str) -> dict
     return {"date": date, "time": clock, "price": price}
 
 
+def _http_response_diagnostic(response: requests.Response) -> str:
+    """提供 HTTP 與原始回應摘要；JSON 解碼失敗時也可診斷。"""
+    content = getattr(response, "content", b"") or b""
+    if isinstance(content, bytes):
+        byte_count = len(content)
+        preview = content[:240].decode(
+            getattr(response, "encoding", None) or "utf-8", errors="replace"
+        )
+    else:
+        raw = str(content)
+        byte_count = len(raw.encode("utf-8", errors="replace"))
+        preview = raw[:240]
+    preview = preview.replace("\r", " ").replace("\n", " / ")
+    headers = getattr(response, "headers", {}) or {}
+    return (
+        f"HTTP {getattr(response, 'status_code', 'unknown')}；"
+        f"Content-Type={headers.get('Content-Type', 'unknown')}；"
+        f"回應位元組數={byte_count}；回應開頭：{preview[:240]}"
+    )
+
+
 def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
     """優先使用證交所 MIS 即時指數；舊 MI_5MINS_INDEX CSV 僅作備援。"""
     expected_date = now.strftime("%Y-%m-%d")
@@ -269,20 +290,41 @@ def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
         "Accept": "application/json, text/plain, */*",
     }
     errors = []
+    session = requests.Session()
     try:
-        response = retry(
-            requests.get, TWSE_MIS_INDEX_URL,
-            params={"ex_ch": "tse_t00.tw", "json": "1", "delay": "0"},
-            headers=headers, timeout=20,
-        )
-        response.raise_for_status()
-        quote = parse_twse_mis_intraday(response.json(), expected_date)
-        quote_time = dt.datetime.strptime(quote["time"], "%H:%M:%S").time()
-        if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
-            raise ValueError(f"MIS 最後一筆資料時間不在正常交易時段：{quote['time']}")
-        return {**quote, "source": "證交所 MIS 即時指數", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
-    except Exception as exc:
-        errors.append(f"MIS：{type(exc).__name__}: {exc}")
+        try:
+            landing = retry(
+                session.get, "https://mis.twse.com.tw/stock/index.jsp",
+                headers=headers, timeout=20,
+            )
+            landing.raise_for_status()
+            response = retry(
+                session.get, TWSE_MIS_INDEX_URL,
+                params={"ex_ch": "tse_t00.tw", "json": "1", "delay": "0"},
+                headers=headers, timeout=20,
+            )
+            diagnostic = _http_response_diagnostic(response)
+            try:
+                response.raise_for_status()
+                payload = response.json()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"MIS 回應處理失敗：{type(exc).__name__}: {exc}；{diagnostic}"
+                ) from exc
+            try:
+                quote = parse_twse_mis_intraday(payload, expected_date)
+                quote_time = dt.datetime.strptime(quote["time"], "%H:%M:%S").time()
+                if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
+                    raise ValueError(f"MIS 最後一筆資料時間不在正常交易時段：{quote['time']}")
+            except Exception as exc:
+                raise RuntimeError(
+                    f"MIS 資料驗證失敗：{type(exc).__name__}: {exc}；{diagnostic}"
+                ) from exc
+            return {**quote, "source": "證交所 MIS 即時指數", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+        except Exception as exc:
+            errors.append(f"MIS：{type(exc).__name__}: {exc}")
+    finally:
+        session.close()
 
     try:
         response = retry(
@@ -300,7 +342,6 @@ def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
     except Exception as exc:
         errors.append(f"CSV：{type(exc).__name__}: {exc}")
     raise RuntimeError("；".join(errors))
-
 
 
 # ---------- 台指期（期交所開放資料；欄位名稱未實測，已做容錯） ----------
@@ -1095,10 +1136,14 @@ def main(now_utc: dt.datetime | None = None) -> None:
                         for key in ("live_price", "live_chg", "live_date", "live_time", "live_source", "live_checked_at"):
                             if key in old_live:
                                 item[key] = old_live[key]
-                    item["live_status"] = "failed"
-                    item["live_error"] = str(exc)
+                    if "MIS 指數日期不符" in str(exc):
+                        item["live_status"] = "休市或無新資料"
+                        item["live_error"] = ""
+                    else:
+                        item["live_status"] = "failed"
+                        item["live_error"] = str(exc)
                     item["live_checked_at"] = now.strftime("%Y-%m-%d %H:%M")
-                    print(f"[TWSE intraday] 更新失敗：{exc}")
+                    print(f"[TWSE intraday] {item['live_status']}：{exc}")
 
         items.append(item)
         if sym == "^TWII":
