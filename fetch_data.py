@@ -43,7 +43,8 @@ STOOQ = {
 SUPPORT_DAYS, NEAR, FAR = 60, 2.0, 5.0
 FUT_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"  # 期交所開放資料：期貨每日交易行情（只提供最新一日）
 TWSE_TURNOVER_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK"  # 證交所：每日市場成交資訊
-TWSE_INTRADAY_URL = "https://www.twse.com.tw/exchangeReport/MI_5MINS_INDEX"  # 證交所：加權指數每 5 秒資料
+TWSE_INTRADAY_URL = "https://www.twse.com.tw/exchangeReport/MI_5MINS_INDEX"  # 證交所歷史/盤後 CSV 備援
+TWSE_MIS_INDEX_URL = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp"  # 證交所 MIS 加權指數盤中快照
 
 
 NY = ZoneInfo("America/New_York")
@@ -237,21 +238,68 @@ def parse_twse_intraday_csv(raw: str, expected_date: str) -> dict[str, Any]:
     return latest
 
 
+def parse_twse_mis_intraday(payload: dict[str, Any], expected_date: str) -> dict[str, Any]:
+    """解析 TWSE MIS 的上市加權指數即時報價（tse_t00.tw）。"""
+    rows = payload.get("msgArray") or []
+    if not rows:
+        raise ValueError(
+            f"MIS 未回傳 msgArray（rtcode={payload.get('rtcode')}；"
+            f"rtmessage={payload.get('rtmessage') or payload.get('msg') or '無'}）"
+        )
+    row = next((x for x in rows if str(x.get("c", "")).lower() in ("t00", "tse_t00")), rows[0])
+    raw_date = str(row.get("d") or "")
+    date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}" if re.fullmatch(r"\d{8}", raw_date) else ""
+    if date != expected_date:
+        raise ValueError(f"MIS 指數日期不符：收到 {raw_date or '空值'}，預期 {expected_date}")
+    clock = str(row.get("t") or "").strip()
+    price = num(row.get("z"))
+    if not re.fullmatch(r"\d{2}:\d{2}:\d{2}", clock):
+        raise ValueError(f"MIS 指數時間格式錯誤：{clock or '空值'}")
+    if price is None or not 1000 < price < 100000:
+        raise ValueError(f"MIS 指數價格無效：{row.get('z')!r}")
+    return {"date": date, "time": clock, "price": price}
+
+
 def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
-    """取得證交所加權指數盤中快照；呼叫端負責保留最後成功資料與失敗狀態。"""
-    date = now.strftime("%Y%m%d")
-    response = retry(
-        requests.get, TWSE_INTRADAY_URL,
-        params={"response": "csv", "date": date},
-        headers={"User-Agent": "Mozilla/5.0 market-tracker/1.0"},
-        timeout=25,
-    )
-    response.raise_for_status()
-    quote = parse_twse_intraday_csv(response.text, now.strftime("%Y-%m-%d"))
-    quote_time = dt.datetime.strptime(quote["time"], "%H:%M:%S" if len(quote["time"]) == 8 else "%H:%M").time()
-    if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
-        raise ValueError(f"證交所最後一筆資料時間不在正常交易時段：{quote['time']}")
-    return {**quote, "source": "證交所 MI_5MINS_INDEX", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+    """優先使用證交所 MIS 即時指數；舊 MI_5MINS_INDEX CSV 僅作備援。"""
+    expected_date = now.strftime("%Y-%m-%d")
+    headers = {
+        "User-Agent": "Mozilla/5.0 market-tracker/1.0",
+        "Referer": "https://mis.twse.com.tw/stock/index.jsp",
+        "Accept": "application/json, text/plain, */*",
+    }
+    errors = []
+    try:
+        response = retry(
+            requests.get, TWSE_MIS_INDEX_URL,
+            params={"ex_ch": "tse_t00.tw", "json": "1", "delay": "0"},
+            headers=headers, timeout=20,
+        )
+        response.raise_for_status()
+        quote = parse_twse_mis_intraday(response.json(), expected_date)
+        quote_time = dt.datetime.strptime(quote["time"], "%H:%M:%S").time()
+        if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
+            raise ValueError(f"MIS 最後一筆資料時間不在正常交易時段：{quote['time']}")
+        return {**quote, "source": "證交所 MIS 即時指數", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+    except Exception as exc:
+        errors.append(f"MIS：{type(exc).__name__}: {exc}")
+
+    try:
+        response = retry(
+            requests.get, TWSE_INTRADAY_URL,
+            params={"response": "csv", "date": now.strftime("%Y%m%d")},
+            headers={"User-Agent": "Mozilla/5.0 market-tracker/1.0"},
+            timeout=25,
+        )
+        response.raise_for_status()
+        quote = parse_twse_intraday_csv(response.text, expected_date)
+        quote_time = dt.datetime.strptime(quote["time"], "%H:%M:%S" if len(quote["time"]) == 8 else "%H:%M").time()
+        if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
+            raise ValueError(f"CSV 最後一筆資料時間不在正常交易時段：{quote['time']}")
+        return {**quote, "source": "證交所 MI_5MINS_INDEX（備援）", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+    except Exception as exc:
+        errors.append(f"CSV：{type(exc).__name__}: {exc}")
+    raise RuntimeError("；".join(errors))
 
 
 
