@@ -1,0 +1,80 @@
+name: update-official-stock-data
+
+on:
+  schedule:
+    # 台灣時間週一至週五 18:37；第二次補抓為 20:37。
+    - cron: "37 10,12 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+# 與既有 update.yml 共用群組，避免兩個 workflow 同時推送 main。
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安裝依賴
+        run: python -m pip install requests
+      - name: 更新上市、上櫃官方個股行情
+        run: python stock_data.py
+      - name: 提交資料快照
+        run: |
+          git config user.name "market-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/stocks.json
+          if ! git diff --staged --quiet; then
+            git commit -m "update official Taiwan stock data"
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+          fi
+      - name: 驗證資料檔與資料新鮮度
+        run: |
+          python - <<'PY'
+          import datetime as dt
+          import json
+          from zoneinfo import ZoneInfo
+
+          with open("docs/stocks.json", encoding="utf-8") as f:
+              data = json.load(f)
+          status = data.get("update_status")
+          assert status in ("success", "partial"), "上市與上櫃資料均更新失敗"
+          today = dt.datetime.now(ZoneInfo("Asia/Taipei")).date()
+          markets = data.get("markets", {})
+          stale = []
+          for market, minimum in (("listed", 500), ("otc", 300)):
+              item = markets.get(market, {})
+              if item.get("status") == "success":
+                  assert item.get("trading_date"), f"{market} 缺少交易日期"
+                  assert item.get("count", 0) >= minimum, f"{market} 行情筆數不足"
+                  assert item.get("items"), f"{market} 行情清單為空"
+                  date_value = item["trading_date"]
+              else:
+                  date_value = item.get("last_success_date") or item.get("trading_date")
+                  print(f"::warning::{market} 本次更新失敗；最後成功日期={date_value}；錯誤={item.get('error')}")
+              if not date_value:
+                  stale.append(f"{market} 尚無成功快照")
+                  continue
+              age = (today - dt.date.fromisoformat(date_value)).days
+              print(f"{market}: status={item.get('status')} date={date_value} age_days={age} count={item.get('count')}")
+              if age > 4:
+                  stale.append(f"{market} 最後成功日期 {date_value} 已過期 {age} 天")
+          if stale:
+              for message in stale:
+                  print(f"::error::{message}")
+              raise SystemExit("個股資料超過 4 個日曆日未成功更新")
+          if status == "partial":
+              print("::warning::本次只有部分市場更新成功；失敗市場已保留舊快照")
+          print(f"官方個股資料驗證完成：{data.get('successful_markets')}/{data.get('total_markets')} 市場成功")
+          PY
