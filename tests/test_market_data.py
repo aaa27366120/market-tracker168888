@@ -1,6 +1,6 @@
 import datetime as dt
 
-from fetch_data import fut_records, parse_twse_intraday_csv, signed_num
+from fetch_data import fut_records, parse_twse_intraday_csv, parse_twse_mis_intraday, signed_num
 
 
 def test_futures_night_and_day_are_separate():
@@ -50,3 +50,33 @@ def test_taifex_down_arrow_is_negative():
     assert signed_num("▼0.85%") == -0.85
     assert signed_num("▲0.35%") == 0.35
     assert signed_num("-0.20%") == -0.2
+
+
+
+def test_twse_mis_intraday_parser_reads_taiex_quote():
+    payload = {
+        "rtcode": "0000",
+        "msgArray": [{
+            "c": "t00", "d": "20261113", "t": "10:30:05",
+            "z": "42711.92",
+        }],
+    }
+    assert parse_twse_mis_intraday(payload, "2026-11-13") == {
+        "date": "2026-11-13", "time": "10:30:05", "price": 42711.92
+    }
+
+
+def test_twse_mis_intraday_parser_rejects_stale_date():
+    payload = {
+        "rtcode": "0000",
+        "msgArray": [{
+            "c": "t00", "d": "20261112", "t": "13:30:00",
+            "z": "42600.00",
+        }],
+    }
+    try:
+        parse_twse_mis_intraday(payload, "2026-11-13")
+    except ValueError as exc:
+        assert "日期不符" in str(exc)
+    else:
+        raise AssertionError("stale MIS date must be rejected")
