@@ -297,7 +297,13 @@ def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
                 session.get, "https://mis.twse.com.tw/stock/index.jsp",
                 headers=headers, timeout=20,
             )
-            landing.raise_for_status()
+            try:
+                landing.raise_for_status()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"MIS 首頁 cookie 請求失敗：{type(exc).__name__}: {exc}；"
+                    f"{_http_response_diagnostic(landing)}"
+                ) from exc
             response = retry(
                 session.get, TWSE_MIS_INDEX_URL,
                 params={"ex_ch": "tse_t00.tw", "json": "1", "delay": "0"},
