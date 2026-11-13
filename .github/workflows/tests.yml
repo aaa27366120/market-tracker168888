@@ -21,3 +21,27 @@ jobs:
         run: python -m py_compile fetch_data.py stock_data.py
       - name: 執行單元測試
         run: python -m unittest discover -s tests -v
+      - name: 官方 API 非阻擋式 smoke test
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import requests
+
+          urls = {
+              "TWSE company master": "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
+              "TWSE daily quotes": "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+              "TPEx company master": "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O",
+              "TPEx daily quotes": "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+          }
+          for label, url in urls.items():
+              try:
+                  response = requests.get(url, timeout=15, headers={"User-Agent": "MarketTracker-smoke-test"})
+                  print(f"{label}: HTTP {response.status_code}; content-type={response.headers.get('content-type')}")
+                  response.raise_for_status()
+                  payload = response.json()
+                  if not isinstance(payload, list):
+                      raise ValueError(f"expected JSON array, got {type(payload).__name__}")
+                  print(f"{label}: rows={len(payload)}; first-row-keys={list(payload[0]) if payload else []}")
+              except Exception as exc:
+                  print(f"::warning::{label} smoke test unavailable: {type(exc).__name__}: {exc}")
+          PY
