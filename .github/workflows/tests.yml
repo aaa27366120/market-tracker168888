@@ -25,23 +25,20 @@ jobs:
         continue-on-error: true
         run: |
           python - <<'PY'
-          import requests
+          import stock_data
 
-          urls = {
-              "TWSE company master": "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
-              "TWSE daily quotes": "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
-              "TPEx company master": "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O",
-              "TPEx daily quotes": "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
-          }
-          for label, url in urls.items():
+          for market, source in stock_data.SOURCES.items():
               try:
-                  response = requests.get(url, timeout=15, headers={"User-Agent": "MarketTracker-smoke-test"})
-                  print(f"{label}: HTTP {response.status_code}; content-type={response.headers.get('content-type')}")
-                  response.raise_for_status()
-                  payload = response.json()
-                  if not isinstance(payload, list):
-                      raise ValueError(f"expected JSON array, got {type(payload).__name__}")
-                  print(f"{label}: rows={len(payload)}; first-row-keys={list(payload[0]) if payload else []}")
+                  master = stock_data.fetch_json(source["master_url"])
+                  quotes = stock_data.fetch_json(source["quotes_url"])
+                  trading_date, items, stats = stock_data.parse_market(
+                      market, master, quotes, return_stats=True
+                  )
+                  print(
+                      f"{market}: master_rows={len(master)}; quote_rows={len(quotes)}; "
+                      f"parsed_rows={len(items)}; trading_date={trading_date}; "
+                      f"stats={stats}; quote_columns={list(quotes[0]) if quotes else []}"
+                  )
               except Exception as exc:
-                  print(f"::warning::{label} smoke test unavailable: {type(exc).__name__}: {exc}")
+                  print(f"::warning::{market} live parser smoke test unavailable/failed: {type(exc).__name__}: {exc}")
           PY
