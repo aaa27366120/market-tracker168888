@@ -273,7 +273,8 @@ def update(path: str = OUT, now: dt.datetime | None = None) -> dict[str, Any]:
             markets[market] = {
                 **previous, "source": source["name"], "source_url": source["quotes_url"],
                 "status": "failed", "checked_at": now.isoformat(timespec="minutes"),
-                "error": str(exc)[:500], "last_success_date": previous.get("last_success_date") or previous.get("trading_date"),\n                "last_success_count": previous.get("last_success_count") or previous.get("count"),
+                "error": str(exc)[:500], "last_success_date": previous.get("last_success_date") or previous.get("trading_date"),
+                "last_success_count": previous.get("last_success_count") or previous.get("count"),
             }
             errors.append(f"{market}: {exc}")
 
