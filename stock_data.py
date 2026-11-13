@@ -249,8 +249,7 @@ def update(path: str = OUT, now: dt.datetime | None = None) -> dict[str, Any]:
                     f"{source['name']} 回傳日期倒退：{trading_date} < 已保存日期 {previous_date}"
                 )
             previous_count = previous.get("last_success_count") or previous.get("count")
-            previous_success_date = previous.get("last_success_date") or previous_date
-            if previous_count and previous_success_date != trading_date:
+            if previous_count:
                 floor = int(previous_count * MIN_PREVIOUS_COUNT_RATIO)
                 if len(items) < floor:
                     raise StockDataError(
