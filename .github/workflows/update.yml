@@ -46,4 +46,20 @@ jobs:
           git config user.email "bot@users.noreply.github.com"
           git add docs/data.json
           git add docs/fut_probe.json 2>/dev/null || true
-          git diff --staged --quiet || (git commit -m "update data" && git push)
+          if git diff --staged --quiet; then
+            echo "沒有新的市場資料需要提交"
+            exit 0
+          fi
+          git commit -m "update data"
+          # 其他 workflow 或人工更新可能先推進 main；先 rebase，再有限次重試 push。
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push 第 ${attempt} 次未成功，重新同步 main 後再試"
+            sleep $((attempt * 2))
+          done
+          echo "::error::同步 main 後仍無法推送市場資料"
+          exit 1

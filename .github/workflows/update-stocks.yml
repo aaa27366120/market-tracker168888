@@ -35,9 +35,20 @@ jobs:
           git add docs/stocks.json
           if ! git diff --staged --quiet; then
             git commit -m "update official Taiwan stock data"
-            git fetch origin main
-            git rebase origin/main
-            git push origin HEAD:main
+            # 同步其他 workflow／人工提交；最多重試三次，絕不 force push。
+            for attempt in 1 2 3; do
+              git fetch origin main
+              git rebase origin/main
+              if git push origin HEAD:main; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::同步 main 後仍無法推送個股資料"
+                exit 1
+              fi
+              echo "Push 第 $attempt 次未成功，重新同步 main 後再試"
+              sleep $((attempt * 2))
+            done
           fi
       - name: 驗證資料檔與資料新鮮度
         run: |
