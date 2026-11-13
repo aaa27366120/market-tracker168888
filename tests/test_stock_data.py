@@ -122,7 +122,7 @@ class StockDataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "stocks.json")
             old = {"schema_version": 1, "markets": {"listed": {
-                "trading_date": "2026-11-11", "status": "success", "count": 501,
+                "trading_date": "2026-11-11", "last_success_date": "2026-11-11", "status": "failed", "count": 1000, "last_success_count": 1000,
                 "items": []}}}
             with open(path, "w", encoding="utf-8") as file:
                 json.dump(old, file)
