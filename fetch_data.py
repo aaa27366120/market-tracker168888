@@ -201,14 +201,14 @@ def twse_turnover() -> dict[str, Any] | None:
 
 def parse_twse_intraday_csv(raw: str, expected_date: str) -> dict[str, Any]:
     """解析證交所 MI_5MINS_INDEX CSV，容忍 BOM、引號、等號及欄名空白差異。"""
-    rows = list(csv.reader(io.StringIO(raw.lstrip("\\ufeff"))))
+    rows = list(csv.reader(io.StringIO(raw.lstrip("\ufeff"))))
     header_idx = None
     time_col = index_col = None
 
     def clean(value: Any) -> str:
-        value = str(value or "").strip().lstrip("\\ufeff").strip().strip('"').strip("'")
+        value = str(value or "").strip().lstrip("\ufeff").strip().strip('"').strip("'")
         value = value.lstrip("=").strip().strip('"').strip("'")
-        return re.sub(r"\\s+", "", value)
+        return re.sub(r"\s+", "", value)
 
     for i, row in enumerate(rows):
         normalized = [clean(value) for value in row]
@@ -229,7 +229,7 @@ def parse_twse_intraday_csv(raw: str, expected_date: str) -> dict[str, Any]:
             continue
         clock = clean(row[time_col])
         price = num(clean(row[index_col]))
-        if not re.fullmatch(r"\\d{2}:\\d{2}(?::\\d{2})?", clock) or price is None or price <= 0:
+        if not re.fullmatch(r"\d{2}:\d{2}(?::\d{2})?", clock) or price is None or price <= 0:
             continue
         latest = {"date": expected_date, "time": clock[:8], "price": price}
     if latest is None:
@@ -258,7 +258,7 @@ def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
 # ---------- 台指期（期交所開放資料；欄位名稱未實測，已做容錯） ----------
 def num(x: Any) -> float | None:
     try:
-        return float(re.sub(r"[,，%▼▲\\s]", "", str(x)))
+        return float(re.sub(r"[,，%▼▲\s]", "", str(x)))
     except (TypeError, ValueError):
         return None
 
