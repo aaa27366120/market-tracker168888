@@ -248,8 +248,9 @@ def update(path: str = OUT, now: dt.datetime | None = None) -> dict[str, Any]:
                 raise StockDataError(
                     f"{source['name']} 回傳日期倒退：{trading_date} < 已保存日期 {previous_date}"
                 )
-            previous_count = previous.get("count")
-            if previous.get("status") == "success" and previous_count and previous_date != trading_date:
+            previous_count = previous.get("last_success_count") or previous.get("count")
+            previous_success_date = previous.get("last_success_date") or previous_date
+            if previous_count and previous_success_date != trading_date:
                 floor = int(previous_count * MIN_PREVIOUS_COUNT_RATIO)
                 if len(items) < floor:
                     raise StockDataError(
@@ -259,7 +260,7 @@ def update(path: str = OUT, now: dt.datetime | None = None) -> dict[str, Any]:
             markets[market] = {
                 "source": source["name"], "source_url": source["quotes_url"],
                 "trading_date": trading_date, "checked_at": now.isoformat(timespec="minutes"),
-                "status": "success", "count": len(items), "items": items, "error": None,
+                "status": "success", "count": len(items), "last_success_count": len(items), "items": items, "error": None,
                 "parse_stats": stats,
             }
             if stats["bad_rows"]:
@@ -272,7 +273,7 @@ def update(path: str = OUT, now: dt.datetime | None = None) -> dict[str, Any]:
             markets[market] = {
                 **previous, "source": source["name"], "source_url": source["quotes_url"],
                 "status": "failed", "checked_at": now.isoformat(timespec="minutes"),
-                "error": str(exc)[:500], "last_success_date": previous.get("trading_date"),
+                "error": str(exc)[:500], "last_success_date": previous.get("last_success_date") or previous.get("trading_date"),\n                "last_success_count": previous.get("last_success_count") or previous.get("count"),
             }
             errors.append(f"{market}: {exc}")
 
