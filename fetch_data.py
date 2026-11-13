@@ -200,28 +200,36 @@ def twse_turnover() -> dict[str, Any] | None:
 
 
 def parse_twse_intraday_csv(raw: str, expected_date: str) -> dict[str, Any]:
-    """解析證交所 MI_5MINS_INDEX CSV，回傳當日最後一筆加權指數快照。"""
-    rows = list(csv.reader(io.StringIO(raw.lstrip("\ufeff"))))
+    """解析證交所 MI_5MINS_INDEX CSV，容忍 BOM、引號、等號及欄名空白差異。"""
+    rows = list(csv.reader(io.StringIO(raw.lstrip("\\ufeff"))))
     header_idx = None
     time_col = index_col = None
+
+    def clean(value: Any) -> str:
+        value = str(value or "").strip().lstrip("\\ufeff").strip().strip('"').strip("'")
+        value = value.lstrip("=").strip().strip('"').strip("'")
+        return re.sub(r"\\s+", "", value)
+
     for i, row in enumerate(rows):
-        normalized = [str(x).strip().replace("=", "") for x in row]
-        if "時間" in normalized:
-            time_col = normalized.index("時間")
-            candidates = [j for j, value in enumerate(normalized)
-                          if "發行量加權股價指數" in value or value == "加權指數"]
-            if candidates:
-                header_idx, index_col = i, candidates[0]
-                break
+        normalized = [clean(value) for value in row]
+        time_candidates = [j for j, value in enumerate(normalized)
+                           if value == "時間" or value.endswith("時間")]
+        index_candidates = [j for j, value in enumerate(normalized)
+                            if "發行量加權股價指數" in value or value in ("加權指數", "加權股價指數")]
+        if time_candidates and index_candidates:
+            header_idx, time_col, index_col = i, time_candidates[0], index_candidates[0]
+            break
     if header_idx is None or time_col is None or index_col is None:
-        raise ValueError("證交所盤中 CSV 欄位格式不符")
+        preview = " / ".join(",".join(row[:8]) for row in rows[:3])
+        raise ValueError(f"證交所盤中 CSV 找不到時間／加權指數欄位；回應開頭：{preview[:240]}")
+
     latest = None
     for row in rows[header_idx + 1:]:
         if len(row) <= max(time_col, index_col):
             continue
-        clock = str(row[time_col]).strip().replace("=", "")
-        price = num(row[index_col])
-        if not re.fullmatch(r"\d{2}:\d{2}(?::\d{2})?", clock) or price is None or price <= 0:
+        clock = clean(row[time_col])
+        price = num(clean(row[index_col]))
+        if not re.fullmatch(r"\\d{2}:\\d{2}(?::\\d{2})?", clock) or price is None or price <= 0:
             continue
         latest = {"date": expected_date, "time": clock[:8], "price": price}
     if latest is None:
@@ -250,8 +258,8 @@ def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
 # ---------- 台指期（期交所開放資料；欄位名稱未實測，已做容錯） ----------
 def num(x: Any) -> float | None:
     try:
-        return float(re.sub(r"[,%▼▲\s]", "", str(x)))
-    except ValueError:
+        return float(re.sub(r"[,，%▼▲\\s]", "", str(x)))
+    except (TypeError, ValueError):
         return None
 
 
@@ -527,23 +535,23 @@ def _next_weekday(day: dt.date) -> dt.date:
 
 
 def expected_futures_dates(now: dt.datetime) -> dict[str, str] | None:
-    """Expected latest published TAIFEX dates for day/night sessions.
+    """Expected latest TAIFEX session dates during scheduled publication windows.
 
-    TAIFEX assigns the after-hours session to its next trading date. At the
-    morning publication window, the day session is the previous weekday while
-    the night session is today's trading date (Monday after a Friday night).
-    This weekday-only helper does not yet account for exchange holidays.
+    DailyMarketReportFut Date labels the calendar date on which the night
+    session opened. On Tue-Fri mornings the latest completed night session is
+    dated the previous weekday; Monday morning is the Sunday-opened session
+    and is assigned Monday. Exchange holidays are not modeled here.
     """
     local = now.astimezone(TZ_TAIPEI)
     if local.time() < dt.time(7, 0):
         return None
     today = local.date()
     if local.time() >= dt.time(16, 0):
-        day_date = today if today.weekday() < 5 else _previous_weekday(today)
-        night_date = day_date
+        session_date = today if today.weekday() < 5 else _previous_weekday(today)
+        day_date = night_date = session_date
     elif dt.time(7, 0) <= local.time() < dt.time(9, 0):
         day_date = _previous_weekday(today)
-        night_date = today if today.weekday() < 5 else _next_weekday(today)
+        night_date = today if today.weekday() == 0 else _previous_weekday(today)
     else:
         return None
     return {"TX": day_date.isoformat(), "TXALL": night_date.isoformat()}
