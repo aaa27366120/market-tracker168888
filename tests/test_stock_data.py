@@ -126,7 +126,7 @@ class StockDataTests(unittest.TestCase):
                 "items": []}}}
             with open(path, "w", encoding="utf-8") as file:
                 json.dump(old, file)
-            master, quotes = fixture_rows(count=400)
+            master, quotes = fixture_rows(count=799)
             with patch.object(stock_data, "fetch_json", side_effect=[master, quotes, RuntimeError("offline")]):
                 result = stock_data.update(path, dt.datetime(2026, 11, 13, 18, 0, tzinfo=stock_data.TZ_TAIPEI))
             self.assertEqual(result["markets"]["listed"]["status"], "failed")
