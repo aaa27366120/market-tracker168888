@@ -238,20 +238,55 @@ def parse_twse_intraday_csv(raw: str, expected_date: str) -> dict[str, Any]:
 
 
 def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
-    """取得證交所加權指數盤中快照；呼叫端負責保留最後成功資料與失敗狀態。"""
+    """依 PR #5 的 MI_5MINS_INDEX CSV 流程抓取盤中快照；失敗由呼叫端保留舊資料。
+
+    將 HTTP 請求、回應內容檢查、CSV 解析及時間驗證放在同一個 retry 範圍內。
+    這樣即使 TWSE 偶發回傳 HTTP 200 但空白／非 CSV 內容，也會重新請求，
+    而不是只在連線例外時重試。
+    """
     date = now.strftime("%Y%m%d")
-    response = retry(
-        requests.get, TWSE_INTRADAY_URL,
-        params={"response": "csv", "date": date},
-        headers={"User-Agent": "Mozilla/5.0 market-tracker/1.0"},
-        timeout=25,
-    )
-    response.raise_for_status()
-    quote = parse_twse_intraday_csv(response.text, now.strftime("%Y-%m-%d"))
-    quote_time = dt.datetime.strptime(quote["time"], "%H:%M:%S" if len(quote["time"]) == 8 else "%H:%M").time()
-    if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
-        raise ValueError(f"證交所最後一筆資料時間不在正常交易時段：{quote['time']}")
-    return {**quote, "source": "證交所 MI_5MINS_INDEX", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+
+    def fetch_once() -> dict[str, Any]:
+        response = requests.get(
+            TWSE_INTRADAY_URL,
+            params={"response": "csv", "date": date},
+            headers={"User-Agent": "Mozilla/5.0 market-tracker/1.0"},
+            timeout=25,
+        )
+        response.raise_for_status()
+        raw = response.text or ""
+        content_type = response.headers.get("Content-Type", "unknown")
+        body_bytes = len(response.content) if getattr(response, "content", None) is not None else len(raw.encode("utf-8"))
+        diagnostic = (
+            f"HTTP {response.status_code}, Content-Type={content_type}, "
+            f"body_bytes={body_bytes}"
+        )
+        if not raw.strip():
+            raise ValueError(f"證交所盤中回應為空（{diagnostic}）")
+
+        try:
+            quote = parse_twse_intraday_csv(raw, now.strftime("%Y-%m-%d"))
+        except ValueError as exc:
+            preview = raw[:240].replace("\\r", " ").replace("\\n", " / ")
+            raise ValueError(
+                f"證交所盤中回應無法解析（{diagnostic}）；"
+                f"內容預覽：{preview!r}；原因：{exc}"
+            ) from exc
+
+        quote_time = dt.datetime.strptime(
+            quote["time"], "%H:%M:%S" if len(quote["time"]) == 8 else "%H:%M"
+        ).time()
+        if not (dt.time(9, 0) <= quote_time <= dt.time(13, 30)):
+            raise ValueError(
+                f"證交所最後一筆資料時間不在正常交易時段：{quote['time']}（{diagnostic}）"
+            )
+        return {
+            **quote,
+            "source": "證交所 MI_5MINS_INDEX",
+            "checked_at": now.strftime("%Y-%m-%d %H:%M"),
+        }
+
+    return retry(fetch_once, tries=3, wait=2.0)
 
 
 
