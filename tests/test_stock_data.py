@@ -145,7 +145,12 @@ class StockDataTests(unittest.TestCase):
                 json.dump(old, file)
 
             master, quotes = fixture_rows(count=799, date="1151112")
-            with patch.object(stock_data, "fetch_json", side_effect=[master, quotes, RuntimeError("offline")]):
+            otc_master, otc_quotes = fixture_rows("otc", count=301, date="1151112")
+            # The listed market should fail its 80% floor while OTC succeeds,
+            # so the overall result is partial rather than failed.
+            with patch.object(stock_data, "fetch_json", side_effect=[
+                master, quotes, otc_master, otc_quotes
+            ]):
                 result = stock_data.update(
                     path,
                     dt.datetime(2026, 11, 12, 20, 37, tzinfo=stock_data.TZ_TAIPEI),
