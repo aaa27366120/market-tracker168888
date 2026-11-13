@@ -132,6 +132,32 @@ class StockDataTests(unittest.TestCase):
             self.assertEqual(result["markets"]["listed"]["status"], "failed")
             self.assertIn("下降過多", result["markets"]["listed"]["error"])
 
+    def test_same_day_rerun_rejects_truncated_feed_against_successful_snapshot(self):
+        """A second run on the same trading date must still enforce the 80% floor."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "stocks.json")
+            old = {"schema_version": 1, "markets": {"listed": {
+                "trading_date": "2026-11-12", "last_success_date": "2026-11-12",
+                "status": "success", "count": 1000, "last_success_count": 1000,
+                "items": [{"symbol": "2330", "close": 1000}],
+            }}}
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(old, file)
+
+            master, quotes = fixture_rows(count=799, date="1151112")
+            with patch.object(stock_data, "fetch_json", side_effect=[master, quotes, RuntimeError("offline")]):
+                result = stock_data.update(
+                    path,
+                    dt.datetime(2026, 11, 12, 20, 37, tzinfo=stock_data.TZ_TAIPEI),
+                )
+
+            listed = result["markets"]["listed"]
+            self.assertEqual(result["update_status"], "partial")
+            self.assertEqual(listed["status"], "failed")
+            self.assertEqual(listed["trading_date"], "2026-11-12")
+            self.assertEqual(listed["count"], 1000)
+            self.assertIn("下降過多", listed["error"])
+
     def test_write_atomic_creates_valid_compact_json(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "nested", "stocks.json")
