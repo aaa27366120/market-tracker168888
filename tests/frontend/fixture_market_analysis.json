@@ -1,0 +1,30 @@
+{
+  "risk_score": 73,
+  "risk_level": "警戒",
+  "summary": "主要股價指數的技術面風險訊號偏多，宜提高風險控管。",
+  "coverage": 3,
+  "coverage_total": 3,
+  "scored_indices": [
+    {"sym": "^TWII", "name": "台灣加權指數", "score": 80},
+    {"sym": "^SOX", "name": "費城半導體", "score": 60},
+    {"sym": "^GSPC", "name": "標普 500", "score": 80}
+  ],
+  "assets": [
+    {"sym": "^TWII", "name": "台灣加權指數", "date": "2026-11-13", "close": 43675.12, "chg": 1.35,
+     "trend": "空頭", "weekly": "轉弱觀察", "monthly": "轉弱觀察", "rsi14": 45.0, "macd_direction": "偏空",
+     "momentum20": -10.18, "stale": false, "source": "證交所官方收盤（FMTQIK）", "intraday": false,
+     "ma20": 44634.4, "ma60": 46215.19, "vs_ma20": -2.1, "vs_ma60": -5.5,
+     "crosscheck": {"status": "ok", "official": 43675.12, "diff_pct": 0.0, "date": "2026-11-13"}},
+    {"sym": "^SOX", "name": "費城半導體", "date": "2026-11-13", "close": 10146.32, "chg": -3.43,
+     "trend": "空頭", "weekly": "空頭", "monthly": "空頭", "rsi14": 42.2, "macd_direction": "偏多",
+     "momentum20": -8.9, "stale": false, "source": "Yahoo Finance", "intraday": false,
+     "ma20": 10646.11, "ma60": 11570.46, "vs_ma20": -4.7, "vs_ma60": -12.3, "crosscheck": null},
+    {"sym": "^GSPC", "name": "標普 500", "date": "2026-11-13", "close": 7561.67, "chg": -0.4,
+     "trend": "空頭", "weekly": "轉弱觀察", "monthly": "轉弱觀察", "rsi14": 46.8, "macd_direction": "偏空",
+     "momentum20": -1.28, "stale": false, "source": "Yahoo Finance", "intraday": false,
+     "ma20": 7613.26, "ma60": 7670.46, "vs_ma20": -0.7, "vs_ma60": -1.4, "crosscheck": null}
+  ],
+  "includes_intraday": false,
+  "updated": "2026-11-13",
+  "method": "三個指數（台灣加權、費城半導體、標普 500）等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"
+}

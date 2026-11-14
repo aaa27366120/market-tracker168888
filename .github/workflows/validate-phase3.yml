@@ -6,6 +6,7 @@ on:
       - "fetch_data.py"
       - "docs/index.html"
       - "README.md"
+      - "tests/frontend/**"
       - ".github/workflows/validate-phase3.yml"
 permissions:
   contents: read
@@ -30,3 +31,5 @@ jobs:
           Path("/tmp/dashboard.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/dashboard.js
+      - name: Run dashboard rule-matrix tests
+        run: node tests/frontend/test_rule_matrix.js
