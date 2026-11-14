@@ -214,9 +214,9 @@
     "updated": "2026-11-13",
     "method": "四個主要指數等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"
   },
-  "updated": "2026-11-14 07:43",
-  "update_status": "partial",
-  "successful_items": 8,
+  "updated": "2026-11-14 08:59",
+  "update_status": "success",
+  "successful_items": 10,
   "total_items": 10,
   "items": [
     {
@@ -365,35 +365,35 @@
     {
       "sym": "TX",
       "name": "台指期（近月）・日盤",
-      "date": "2026-11-12",
-      "close": 43178.0,
-      "chg": -2.17,
-      "oi": 113812.0,
-      "volume": 87240.0,
+      "date": "2026-11-13",
+      "close": 43834.0,
+      "chg": 1.64,
+      "oi": 105228.0,
+      "volume": 94919.0,
       "volume_unit": "口",
-      "support": null,
-      "dist": null,
-      "vol_ratio": null,
-      "volume_status": "累積中",
+      "support": 37694.0,
+      "dist": 16.3,
+      "vol_ratio": 0.96,
+      "volume_status": "有效",
       "level": "ok",
-      "stale": true,
-      "history_days": 5,
+      "stale": false,
+      "history_days": 6,
       "spark": [
         39786.0,
         41423.0,
         42623.0,
         44091.0,
-        43178.0
+        43178.0,
+        43834.0
       ],
       "price_source": "期交所官方・日盤",
-      "price_time": "2026-11-12",
+      "price_time": "2026-11-13",
       "session": "最近日盤收盤",
       "session_class": "closed",
-      "checked_at": "2026-11-14 07:43",
-      "data_status": "failed",
-      "last_success_date": "2026-11-12",
-      "text": "期交所資料更新失敗，顯示舊資料（最後成功日期：2026-11-12）",
-      "fetch_error": "期交所日盤資料日期為 2026-11-12，預期 2026-11-13",
+      "checked_at": "2026-11-14 08:59",
+      "data_status": "success",
+      "last_success_date": "2026-11-13",
+      "text": "距近 60 日支撐尚遠",
       "links": {
         "cmoney_day": "https://www.cmoney.tw/forum/futures/TXF1"
       }
@@ -401,34 +401,34 @@
     {
       "sym": "TXALL",
       "name": "台指期（全）・夜盤",
-      "date": "2026-11-12",
-      "close": 44606.0,
-      "chg": 1.06,
+      "date": "2026-11-13",
+      "close": 43676.0,
+      "chg": 1.27,
       "oi": null,
-      "volume": 47550.0,
+      "volume": 79972.0,
       "volume_unit": "口",
       "support": null,
       "dist": null,
       "vol_ratio": null,
       "volume_status": "累積中",
       "level": "ok",
-      "stale": true,
-      "history_days": 4,
+      "stale": false,
+      "history_days": 5,
       "spark": [
         40298.0,
         42542.0,
         42522.0,
-        44606.0
+        44606.0,
+        43676.0
       ],
       "price_source": "期交所官方・夜盤",
-      "price_time": "2026-11-12",
+      "price_time": "2026-11-13",
       "session": "最近夜盤收盤",
       "session_class": "closed",
-      "checked_at": "2026-11-14 07:43",
-      "data_status": "failed",
-      "last_success_date": "2026-11-12",
-      "text": "期交所資料更新失敗，顯示舊資料（最後成功日期：2026-11-12）",
-      "fetch_error": "期交所夜盤資料日期為 2026-11-12，預期 2026-11-13",
+      "checked_at": "2026-11-14 08:59",
+      "data_status": "success",
+      "last_success_date": "2026-11-13",
+      "text": "歷史資料累積中（5/60 天）",
       "session_note": "此卡只顯示期交所已公布的最近夜盤資料，不含日盤；資料日期是交易資料日期，擷取時間另列，夜盤交易中不代表即時逐筆報價。",
       "links": {
         "cmoney_night": "https://www.cmoney.tw/forum/futures/TXF1?s=p",
@@ -1462,6 +1462,17 @@
         "low": 43057.0,
         "vol": 87240.0,
         "session": "day"
+      },
+      {
+        "date": "2026-11-13",
+        "m": "202611",
+        "close": 43834.0,
+        "oi": 105228.0,
+        "chg_pct": 1.64,
+        "high": 44824.0,
+        "low": 43692.0,
+        "vol": 94919.0,
+        "session": "day"
       }
     ],
     "TXALL": [
@@ -1507,6 +1518,17 @@
         "high": 44911.0,
         "low": 43957.0,
         "vol": 47550.0,
+        "session": "night"
+      },
+      {
+        "date": "2026-11-13",
+        "m": "202611",
+        "close": 43676.0,
+        "oi": null,
+        "chg_pct": 1.27,
+        "high": 44034.0,
+        "low": 42371.0,
+        "vol": 79972.0,
         "session": "night"
       }
     ]
