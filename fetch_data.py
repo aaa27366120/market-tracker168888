@@ -40,6 +40,10 @@ STOOQ = {
     "^SOX": "^sox", "GC=F": "gc.f", "CL=F": "cl.f",
     "TWD=X": "usdtwd",
 }
+# 第三階段「市場分析」只追蹤這三個標的，順序即畫面欄位順序：
+# 加權指數與費城半導體為主，標普 500 作為大盤背景放第三欄。
+# 其他標的（那斯達克、道瓊、黃金、原油、匯率）仍在上方行情卡片顯示，但不納入市場分析與風險分數。
+MARKET_ANALYSIS_SYMBOLS = ("^TWII", "^SOX", "^GSPC")
 SUPPORT_DAYS, NEAR, FAR = 60, 2.0, 5.0
 FUT_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"  # 期交所開放資料：期貨每日交易行情（只提供最新一日）
 TWSE_TURNOVER_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK"  # 證交所：每日市場成交資訊
@@ -871,8 +875,9 @@ def technical_analysis(df: pd.DataFrame) -> dict[str, Any]:
 
 
 def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
-    core_symbols={"^TWII","^GSPC","^IXIC","^SOX"}
-    core=[x for x in items if x.get("sym") in core_symbols and not x.get("stale")
+    by_symbol={x.get("sym"):x for x in items}
+    selected=[by_symbol[s] for s in MARKET_ANALYSIS_SYMBOLS if s in by_symbol]  # 固定順序；其餘標的不納入
+    core=[x for x in selected if not x.get("stale")
           and not x.get("technical_stale")
           and x.get("technical",{}).get("status")=="success"]
     scores=[]
@@ -890,7 +895,7 @@ def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
     elif risk>=30: level,summary="注意","市場出現部分偏弱訊號，宜留意趨勢是否持續惡化。"
     else: level,summary="一般","目前主要股價指數的技術面風險訊號相對有限。"
     assets=[]
-    for item in items:
+    for item in selected:
         t=item.get("technical")
         if not t or t.get("status")!="success": continue
         assets.append({"sym":item.get("sym"),"name":item.get("name"),
@@ -908,10 +913,10 @@ def build_market_analysis(items: list[dict[str, Any]]) -> dict[str, Any]:
             "crosscheck":item.get("crosscheck")})
     dates=[x["date"] for x in assets if x.get("date")]
     return {"risk_score":risk,"risk_level":level,"summary":summary,"coverage":len(scores),
-            "coverage_total":len(core_symbols),"scored_indices":scores,"assets":assets,
+            "coverage_total":len(MARKET_ANALYSIS_SYMBOLS),"scored_indices":scores,"assets":assets,
             "includes_intraday":any(bool(x.get("captured_open")) for x in core),
             "updated":max(dates) if dates else None,
-            "method":"四個主要指數等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"}
+            "method":"三個指數（台灣加權、費城半導體、標普 500）等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"}
 
 
 def foreign_flow(previous: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
