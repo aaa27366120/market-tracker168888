@@ -32,6 +32,18 @@ h1{font-size:1.35rem;margin:8px 0 2px}
 .credit-link small{display:block;color:var(--mute);font-weight:400}
 .analysis-note{font-size:.76rem;color:var(--mute);margin-top:8px}
 @media(max-width:390px){.analysis-grid{grid-template-columns:1fr}}
+.rule-wrap{margin-top:10px;overflow-x:auto}
+.rule-table{width:100%;min-width:300px;border-collapse:collapse;table-layout:fixed;font-size:.74rem}
+.rule-table caption{caption-side:top;text-align:left;font-size:.8rem;font-weight:650;padding:0 0 6px}
+.rule-table th,.rule-table td{padding:5px 3px;border-top:1px solid var(--line);text-align:center;vertical-align:middle;overflow-wrap:anywhere}
+.rule-table thead th{border-top:0;color:var(--mute);font-weight:500;font-size:.7rem}
+.rule-table tbody th,.rule-table tfoot th{text-align:left;font-weight:500;width:34%}
+.rule-table small{display:block;color:var(--mute);font-size:.68rem;font-weight:400}
+.rule-table .on{color:var(--break);font-weight:700}
+.rule-table .off{color:var(--mute)}
+.rule-table .na{color:var(--mute);opacity:.7}
+.rule-table tfoot th,.rule-table tfoot td{font-weight:700;font-variant-numeric:tabular-nums}
+.rule-table .mis{color:var(--break)}
 .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .pr{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .name{font-weight:650;font-size:.95rem}
@@ -78,7 +90,7 @@ footer{color:var(--mute);font-size:.8rem;padding:6px 0 20px}
   <div id="market-analysis" class="grid"></div>
 </section>
 <details><summary>規則說明</summary>
-<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所「每日市場成交資訊」的成交金額（億元），統計口徑可能與新聞常引用的集中市場成交金額不同，量比使用同一來源的連續資料；期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝只顯示期交所夜盤資料，不與日盤合併；夜盤結束後，白天保留最近一次夜盤收盤價，標題會註明夜盤。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。若資料抓取失敗，保留最後成功數值並顯示原始資料日期，不會以網站更新時間冒充行情時間。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。台指期日盤與夜盤均以期交所官方資料分開呈現；本站不再使用無法穩定解析的第三方網頁報價。加權指數盤中快照優先使用證交所 MIS 即時指數，MI_5MINS_INDEX 僅作備援；排程每 30 分鐘嘗試更新；這是定時擷取快照，不保證準點或即時推播。收盤價以證交所 FMTQIK 正式資料為準，Yahoo 日線僅作歷史分析備援。加權指數的「收盤核對」會在收盤後拿 Yahoo 收盤價和證交所公布值比對，差距超過 0.05% 會標示異常。市場分析中標示「含盤中」代表最新一根日線尚未收盤，指標可能在收盤後變動。市場分析各項目的價格與漲跌，取自同一份行情資料。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每 30 分鐘、美股交易時段約每 2 小時，另有收盤後的最終更新（GitHub 排程可能延遲）。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p></details>
+<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所「每日市場成交資訊」的成交金額（億元），統計口徑可能與新聞常引用的集中市場成交金額不同，量比使用同一來源的連續資料；期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝只顯示期交所夜盤資料，不與日盤合併；夜盤結束後，白天保留最近一次夜盤收盤價，標題會註明夜盤。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。若資料抓取失敗，保留最後成功數值並顯示原始資料日期，不會以網站更新時間冒充行情時間。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。台指期日盤與夜盤均以期交所官方資料分開呈現；本站不再使用無法穩定解析的第三方網頁報價。加權指數盤中快照優先使用證交所 MIS 即時指數，MI_5MINS_INDEX 僅作備援；排程每 30 分鐘嘗試更新；這是定時擷取快照，不保證準點或即時推播。收盤價以證交所 FMTQIK 正式資料為準，Yahoo 日線僅作歷史分析備援。加權指數的「收盤核對」會在收盤後拿 Yahoo 收盤價和證交所公布值比對，差距超過 0.05% 會標示異常。市場分析中標示「含盤中」代表最新一根日線尚未收盤，指標可能在收盤後變動。市場分析各項目的價格與漲跌，取自同一份行情資料。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每 30 分鐘、美股交易時段約每 2 小時，另有收盤後的最終更新（GitHub 排程可能延遲）。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p><p>市場分析只追蹤台灣加權指數、費城半導體與標普 500（標普 500 作為大盤背景）。風險訊號矩陣把技術風險評分拆成 5 條規則，逐一顯示每個計分指數是否亮燈與加分；畫面會依均線、RSI、MACD 與動能重算分數並和資料檔核對，不一致時顯示警示。台積電占加權指數比重高、費城半導體也屬同一個 AI／半導體主題，所以這個分數反映台股與其美國對應指數的技術面，不等於整體市場風險。亮燈是技術風險觀察，不是買賣訊號。</p></details>
 <footer>資料來自證交所與公開行情來源,可能有延遲或誤差,以官方公告為準。本頁僅為資訊整理,不構成任何投資建議;每個人的資金與風險承受度不同,請自行判斷。</footer>
 </main>
 <script>
@@ -103,14 +115,57 @@ function spark(a,sup){
   const p=a.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="近 60 日走勢與支撐線">${has?`<line x1="0" x2="${w}" y1="${y(sup)}" y2="${y(sup)}" stroke="var(--sup)" stroke-dasharray="4 3" stroke-width="1.2"/>`:""}<polyline points="${p}" fill="none" stroke="var(--spark)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
 }
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const RULES=[
+  {label:"收盤低於 MA60",pts:25,test:a=>a.close!=null&&a.ma60!=null?a.close<a.ma60:null},
+  {label:"MA20 低於 MA60",pts:20,test:a=>a.ma20!=null&&a.ma60!=null?a.ma20<a.ma60:null},
+  {label:"RSI(14) 低於 40",pts:20,test:a=>a.rsi14!=null?a.rsi14<40:null},
+  {label:"MACD 柱狀體小於 0",pts:20,test:a=>a.macd_direction==null||a.macd_direction==="資料不足"?null:a.macd_direction==="偏空"},
+  {label:"20 日動能小於 0",pts:15,test:a=>a.momentum20!=null?a.momentum20<0:null}
+];
+function ruleTable(m){
+  const sc=Array.isArray(m.scored_indices)?m.scored_indices:[];
+  if(!sc.length)return {html:"",summary:""};
+  const assets=m.assets||[];
+  const cols=sc.map(s=>({s,a:assets.find(x=>x.sym===s.sym)||null}));
+  const res=cols.map(c=>RULES.map(r=>c.a?r.test(c.a):null));
+  const total=res.map(col=>col.some(v=>v===null)?null:col.reduce((t,v,i)=>t+(v?RULES[i].pts:0),0));
+  const mismatch=cols.some((c,i)=>total[i]!=null&&c.s.score!=null&&total[i]!==c.s.score);
+  const head=cols.map(c=>`<th scope="col">${esc(c.s.name||(c.a&&c.a.name)||c.s.sym)}</th>`).join("");
+  const body=RULES.map((r,ri)=>`<tr><th scope="row">${esc(r.label)}<small>+${r.pts} 分</small></th>${cols.map((c,ci)=>{
+    const v=res[ci][ri];
+    return v===true?`<td class="on">亮 +${r.pts}</td>`:v===false?`<td class="off">未亮</td>`:`<td class="na">資料不足</td>`;
+  }).join("")}</tr>`).join("");
+  const foot=`<tr><th scope="row">合計</th>${cols.map((c,i)=>{
+    if(total[i]==null)return `<td>—</td>`;
+    const bad=c.s.score!=null&&total[i]!==c.s.score;
+    return bad?`<td class="mis">${total[i]}<small>資料檔 ${esc(c.s.score)}</small></td>`:`<td>${total[i]}</td>`;
+  }).join("")}</tr>`;
+  const cells=res.flat(),valid=cells.filter(v=>v!==null).length,lit=cells.filter(v=>v===true).length;
+  const allLit=RULES.filter((r,ri)=>res.every(col=>col[ri]===true)).map(r=>r.label);
+  const summary=valid?`計分的 ${cols.length} 個指數共 ${valid} 條規則，亮燈 ${lit} 條${allLit.length?`；所有計分指數都亮燈：${allLit.join("、")}`:""}。`:"";
+  const warn=mismatch?'<p class="analysis-note" style="color:var(--break)">⚠ 依 MA、RSI、MACD、動能重算的分數與資料檔不一致，請以資料檔為準，並檢查計分規則是否已變更。</p>':"";
+  const html=`<div class="rule-wrap"><table class="rule-table"><caption>風險訊號矩陣（亮燈即加分）</caption><thead><tr><th scope="col">規則</th>${head}</tr></thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>${warn}`;
+  return {html,summary};
+}
+function dateNote(assets){
+  const ds=assets.filter(a=>a&&a.date);
+  if(!ds.length)return "";
+  const cnt={};ds.forEach(a=>{cnt[a.date]=(cnt[a.date]||0)+1});
+  const mode=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x]||(x<y?1:-1))[0];
+  const odd=ds.filter(a=>a.date!==mode);
+  return odd.length?`行情日期多數為 ${esc(mode)}；日期不同：${odd.map(a=>esc((a.name||a.sym)+" "+a.date)).join("、")}。`:`所有項目行情日期：${esc(mode)}。`;
+}
 function marketAnalysis(m){
   if(!m)return "<div class=\"card risk-card\"><span class=\"name\">市場分析資料準備中</span><p class=\"text\">新的技術指標將在下一次成功的行情更新後產生；目前不以舊資料推估日、週、月趨勢。</p></div>";
   const cls=m.risk_score==null?"":m.risk_score>=60?"risk-alert":m.risk_score>=30?"risk-watch":"risk-normal";
   const score=m.risk_score==null?"—":m.risk_score+"/100";
   const coverage=(m.coverage??0)+"/"+(m.coverage_total??4);
+  const rt=ruleTable(m);
+  const scored=new Set((Array.isArray(m.scored_indices)?m.scored_indices:[]).map(s=>s.sym));
   const tiles=(m.assets||[]).map(a=>{
     const trend=a.stale?"舊資料":a.trend||"資料不足";
-    return "<div class=\"analysis-item\"><span class=\"name\">"+(a.name||a.sym)+(a.intraday?'<span class="sess open">含盤中</span>':"")+"</span>"+
+    return "<div class=\"analysis-item\"><span class=\"name\">"+(a.name||a.sym)+(scored.size&&!scored.has(a.sym)?'<span class="sess">未計分</span>':"")+(a.intraday?'<span class="sess open">含盤中</span>':"")+"</span>"+
       '<div class="pr"><span class="price">'+f(a.close)+'</span><span class="chg '+(a.chg>=0?"up":"dn")+'">'+sg(a.chg)+'</span></div><div class="facts">'+
       row("距 MA20",a.vs_ma20==null?null:sg(a.vs_ma20))+row("距 MA60",a.vs_ma60==null?null:sg(a.vs_ma60))+
       row("日線",trend)+row("週線",a.weekly||"資料不足")+row("月線",a.monthly||"資料不足")+
@@ -118,10 +173,12 @@ function marketAnalysis(m){
       row("20日動能",a.momentum20==null?"資料不足":sg(a.momentum20))+row("行情日期",a.date||"未知")+
       row("來源",a.source||"未標示")+row("收盤核對",xc(a))+"</div></div>";
   }).join("");
-  return "<div class=\"card risk-card\"><div class=\"risk-head\"><span class=\"name\">市場技術風險評分</span><span class=\"risk-score "+cls+"\">"+score+"</span></div>"+
+  return "<div class=\"card risk-card\"><div class=\"risk-head\"><span class=\"name\">台股技術風險評分</span><span class=\"risk-score "+cls+"\">"+score+"</span></div>"+
     "<span class=\"chip "+(m.risk_score==null?"ok":m.risk_score>=60?"break":m.risk_score>=30?"near":"ok")+"\">"+(m.risk_level||"資料不足")+"</span>"+
     "<p class=\"text\">"+(m.summary||"目前沒有可用的市場摘要。")+"</p>"+
+    (rt.summary?'<p class="text">'+rt.summary+'</p>':"")+rt.html+
     "<div class=\"meta\"><span>有效主要指數 "+coverage+"</span><span>分析日期 "+(m.updated||"未知")+"</span></div>"+
+    (dateNote(m.assets||[])?'<p class="analysis-note">'+dateNote(m.assets||[])+'</p>':"")+
     (m.includes_intraday?'<p class="analysis-note">⚠ 目前含盤中未完成的資料，各項指標與風險分數可能在收盤後變動。</p>':"")+"<p class=\"analysis-note\">評分方法："+(m.method||"未提供")+" 本分數是技術風險觀察，不是預測或買賣訊號。</p>"+
     (tiles?"<div class=\"analysis-grid\">"+tiles+"</div>":"<p class=\"analysis-note\">目前沒有足夠的技術分析資料。</p>")+"</div>";
 }
