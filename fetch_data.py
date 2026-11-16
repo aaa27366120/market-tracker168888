@@ -264,6 +264,32 @@ def parse_twse_mis_intraday(payload: dict[str, Any], expected_date: str) -> dict
     return {"date": date, "time": clock, "price": price}
 
 
+def parse_twse_mis_previous_close(payload: dict[str, Any], price: float) -> float | None:
+    """MIS 的 y 欄位是昨收（官方參考價），用來計算盤中漲跌幅。
+
+    數值缺漏或不合理（與現價相差超過 20%）時回傳 None，不影響報價本身是否可用。
+    """
+    rows = payload.get("msgArray") or []
+    row = next((x for x in rows if str(x.get("c", "")).lower() in ("t00", "tse_t00")), rows[0] if rows else {})
+    previous = num(row.get("y"))
+    if previous is None or previous <= 0 or not 0.8 < price / previous < 1.2:
+        return None
+    return previous
+
+
+def resolve_previous_close(live: dict[str, Any], turnover: dict[str, Any] | None,
+                           old: dict[str, Any] | None, item: dict[str, Any], today: str) -> float | None:
+    """盤中漲跌幅的昨收來源：MIS 自帶昨收優先，其次證交所正式收盤，最後才用舊資料。"""
+    previous_close = live.get("previous_close")
+    if previous_close is None and turnover and turnover.get("date") == today:
+        previous_close = turnover.get("previous_index_close")
+    if previous_close is None and old and old.get("date") < today:
+        previous_close = old.get("close")
+    if previous_close is None and item.get("date") < today:
+        previous_close = item.get("close")
+    return previous_close
+
+
 def _http_response_diagnostic(response: requests.Response) -> str:
     """提供 HTTP 與原始回應摘要；JSON 解碼失敗時也可診斷。"""
     content = getattr(response, "content", b"") or b""
@@ -294,20 +320,20 @@ def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
         "Accept": "application/json, text/plain, */*",
     }
     errors = []
+    landing_note = ""
     session = requests.Session()
     try:
         try:
-            landing = retry(
-                session.get, "https://mis.twse.com.tw/stock/index.jsp",
-                headers=headers, timeout=20,
-            )
+            # 取得 cookie 只是盡力而為：首頁可能回 404 或無法連線，但 API 本身不需要它
+            # 也能回傳資料（2026-11-16 實測）。首頁失敗時只記錄，仍繼續呼叫 API。
             try:
+                landing = retry(
+                    session.get, "https://mis.twse.com.tw/stock/index.jsp",
+                    headers=headers, timeout=20,
+                )
                 landing.raise_for_status()
             except Exception as exc:
-                raise RuntimeError(
-                    f"MIS 首頁 cookie 請求失敗：{type(exc).__name__}: {exc}；"
-                    f"{_http_response_diagnostic(landing)}"
-                ) from exc
+                landing_note = f"MIS 首頁失敗（已略過，直接呼叫 API）：{type(exc).__name__}: {exc}"
             response = retry(
                 session.get, TWSE_MIS_INDEX_URL,
                 params={"ex_ch": "tse_t00.tw", "json": "1", "delay": "0"},
@@ -330,9 +356,13 @@ def fetch_twse_intraday(now: dt.datetime) -> dict[str, Any]:
                 raise RuntimeError(
                     f"MIS 資料驗證失敗：{type(exc).__name__}: {exc}；{diagnostic}"
                 ) from exc
-            return {**quote, "source": "證交所 MIS 即時指數", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+            result = {**quote, "source": "證交所 MIS 即時指數", "checked_at": now.strftime("%Y-%m-%d %H:%M")}
+            previous_close = parse_twse_mis_previous_close(payload, quote["price"])
+            if previous_close is not None:
+                result["previous_close"] = previous_close
+            return result
         except Exception as exc:
-            errors.append(f"MIS：{type(exc).__name__}: {exc}")
+            errors.append(f"MIS：{type(exc).__name__}: {exc}" + (f"；{landing_note}" if landing_note else ""))
     finally:
         session.close()
 
@@ -1126,13 +1156,7 @@ def main(now_utc: dt.datetime | None = None) -> None:
             if mkt_open:
                 try:
                     live = fetch_twse_intraday(now)
-                    previous_close = None
-                    if turnover and turnover.get("date") == today:
-                        previous_close = turnover.get("previous_index_close")
-                    if previous_close is None and old and old.get("date") < today:
-                        previous_close = old.get("close")
-                    if previous_close is None and item.get("date") < today:
-                        previous_close = item.get("close")
+                    previous_close = resolve_previous_close(live, turnover, old, item, today)
                     live_chg = ((live["price"] / previous_close) - 1) * 100 if previous_close else None
                     item.update({
                         "live_price": round(live["price"], 2),
