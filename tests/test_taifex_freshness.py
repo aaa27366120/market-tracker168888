@@ -89,13 +89,34 @@ class UpdateFuturesTests(unittest.TestCase):
             self.assertFalse(item["stale"])
             self.assertIn("尚未公布 2026-11-16", item["status_note"])
 
-    def test_two_trading_days_behind_is_overdue(self):
+    def test_three_trading_days_behind_is_overdue(self):
         _, items = self.run_update(
-            {"TX": [row("2026-11-12")], "TXALL": [row("2026-11-12", session="night")]}, at(17, 12))
+            {"TX": [row("2026-11-11")], "TXALL": [row("2026-11-11", session="night")]}, at(17, 12))
         for item in items:
             self.assertEqual(item["data_status"], "overdue")
             self.assertTrue(item["stale"])
-            self.assertEqual(item["days_behind"], 2)
+            self.assertEqual(item["days_behind"], 3)
+
+    def test_two_days_behind_is_still_waiting(self):
+        _, items = self.run_update(
+            {"TX": [row("2026-11-12")], "TXALL": [row("2026-11-12", session="night")]}, at(17, 12))
+        for item in items:
+            self.assertEqual(item["data_status"], "waiting")
+            self.assertFalse(item["stale"])
+
+    def test_single_holiday_never_turns_red(self):
+        # PR #13 review：週三休市、手上最新週二。交易日曆接上前，假日會被算成一個交易日，
+        # 週五會被算成落後 2 天；這不能變紅，也不能發出 ::warning::。
+        hist = {"TX": [row("2026-11-17")], "TXALL": [row("2026-11-17", session="night")]}
+        for moment in (at(19, 10), at(20, 8), at(20, 15)):
+            with patch.object(fetch_data, "tx_rows", return_value={"x": {}}), patch.object(
+                fetch_data, "fut_records", return_value={"TX": [], "TXALL": []}
+            ):
+                _, items = fetch_data.update_futures(hist, fetch=True, now=moment)
+            for item in items:
+                self.assertEqual(item["data_status"], "waiting", moment)
+                self.assertFalse(item["stale"], moment)
+                self.assertLess(item["days_behind"], fetch_data.FUT_OVERDUE_DAYS)
 
     def test_sessions_are_judged_independently(self):
         _, items = self.run_update(
@@ -111,23 +132,49 @@ class UpdateFuturesTests(unittest.TestCase):
         self.assertEqual(by["TXALL"]["data_status"], "unavailable")
         self.assertTrue(by["TXALL"]["stale"])
 
-    def test_fetch_exception_keeps_values_and_marks_failed_when_behind(self):
-        hist = {"TX": [row("2026-11-13")], "TXALL": [row("2026-11-13", session="night")]}
+    def failing_update(self, hist, now, previous=None):
         with patch.object(fetch_data, "tx_rows", side_effect=RuntimeError("non-JSON")):
-            updated, items = fetch_data.update_futures(hist, fetch=True, now=at(17, 12))
+            return fetch_data.update_futures(hist, fetch=True, now=now, previous_items=previous)
+
+    def test_single_transient_failure_stays_waiting(self):
+        hist = {"TX": [row("2026-11-13")], "TXALL": [row("2026-11-13", session="night")]}
+        updated, items = self.failing_update(hist, at(17, 12))
         self.assertEqual(updated["TX"][0]["close"], 44000)
+        for item in items:
+            self.assertEqual(item["data_status"], "waiting")
+            self.assertFalse(item["stale"])
+            self.assertEqual(item["fail_streak"], 1)
+            self.assertIn("non-JSON", item["fetch_error"])
+            self.assertIn("暫不變紅", fetch_data.futures_log_line(item))
+
+    def test_consecutive_failures_turn_red(self):
+        hist = {"TX": [row("2026-11-13")], "TXALL": [row("2026-11-13", session="night")]}
+        previous = {"TX": {"fail_streak": 1}, "TXALL": {"fail_streak": 1}}
+        _, items = self.failing_update(hist, at(17, 12, 30), previous)
         for item in items:
             self.assertEqual(item["data_status"], "failed")
             self.assertTrue(item["stale"])
-            self.assertIn("non-JSON", item["fetch_error"])
+            self.assertEqual(item["fail_streak"], 2)
 
-    def test_fetch_exception_when_already_current_is_not_red(self):
-        hist = {"TX": [row("2026-11-16")], "TXALL": [row("2026-11-16", session="night")]}
-        with patch.object(fetch_data, "tx_rows", side_effect=RuntimeError("timeout")):
-            _, items = fetch_data.update_futures(hist, fetch=True, now=at(17, 20))
+    def test_success_resets_fail_streak(self):
+        previous = {"TX": {"fail_streak": 3}, "TXALL": {"fail_streak": 3}}
+        with patch.object(fetch_data, "tx_rows", return_value={"x": {}}), patch.object(
+            fetch_data, "fut_records",
+            return_value={"TX": [row("2026-11-16")], "TXALL": [row("2026-11-16", session="night")]},
+        ):
+            _, items = fetch_data.update_futures({}, fetch=True, now=at(17, 16, 10), previous_items=previous)
         for item in items:
             self.assertEqual(item["data_status"], "success")
-            self.assertIn("timeout", item["fetch_error"])
+            self.assertEqual(item["fail_streak"], 0)
+
+    def test_fetch_exception_when_already_current_is_success_without_error(self):
+        # PR #13 review：success 卡片不應帶 fetch_error。
+        hist = {"TX": [row("2026-11-16")], "TXALL": [row("2026-11-16", session="night")]}
+        _, items = self.failing_update(hist, at(17, 20))
+        for item in items:
+            self.assertEqual(item["data_status"], "success")
+            self.assertNotIn("fetch_error", item)
+            self.assertIn("不影響顯示", fetch_data.futures_log_line(item))
 
     def test_not_fetched_keeps_previous_check_time(self):
         hist = {"TX": [row("2026-11-16")], "TXALL": [row("2026-11-16", session="night")]}
@@ -138,14 +185,18 @@ class UpdateFuturesTests(unittest.TestCase):
             self.assertFalse(item["checked_this_run"])
             self.assertIn("本次未查詢", fetch_data.futures_log_line(item))
 
-    def test_not_fetched_preserves_previous_failure_while_behind(self):
-        hist = {"TX": [row("2026-11-13")], "TXALL": [row("2026-11-13", session="night")]}
-        previous = {"TX": {"data_status": "failed", "fetch_error": "HTTP 503"}}
-        _, items = fetch_data.update_futures(hist, fetch=False, now=at(17, 12), previous_items=previous)
-        by = self.by_sym(items)
-        self.assertEqual(by["TX"]["data_status"], "failed")
-        self.assertEqual(by["TX"]["fetch_error"], "HTTP 503")
-        self.assertEqual(by["TXALL"]["data_status"], "waiting")
+
+class OverallStatusTests(unittest.TestCase):
+    def test_waiting_is_not_partial(self):
+        self.assertEqual(fetch_data.overall_update_status(8, 2, 10), "success")
+
+    def test_real_failure_is_partial(self):
+        self.assertEqual(fetch_data.overall_update_status(8, 1, 10), "partial")
+
+    def test_nothing_current_is_failed_even_if_all_waiting(self):
+        # PR #13 review：全部都在等待、沒有任何最新資料時，不能顯示成功。
+        self.assertEqual(fetch_data.overall_update_status(0, 2, 2), "failed")
+        self.assertEqual(fetch_data.overall_update_status(0, 0, 10), "failed")
 
 
 class TxRowsDiagnosticTests(unittest.TestCase):
