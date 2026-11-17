@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install pandas requests pytest
+        run: pip install -r requirements.txt pytest
       - name: Compile Python
         run: python -m py_compile fetch_data.py
       - name: Unit tests

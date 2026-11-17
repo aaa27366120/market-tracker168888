@@ -33,11 +33,12 @@ class FuturesDateTests(unittest.TestCase):
             {"TX": "2026-11-13", "TXALL": "2026-11-13"},
         )
 
-    def test_after_close_uses_current_weekday_for_both_sessions(self):
+    def test_after_close_still_expects_previous_weekday(self):
+        # 期交所 API 不會在當天公布當天資料；舊版此處預期當天，造成每天傍晚誤報失敗。
         now = dt.datetime(2026, 11, 13, 16, 7, tzinfo=fetch_data.TZ_TAIPEI)
         self.assertEqual(
             fetch_data.expected_futures_dates(now),
-            {"TX": "2026-11-13", "TXALL": "2026-11-13"},
+            {"TX": "2026-11-12", "TXALL": "2026-11-12"},
         )
 
 

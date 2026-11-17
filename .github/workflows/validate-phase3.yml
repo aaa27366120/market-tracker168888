@@ -32,4 +32,6 @@ jobs:
           PY
           node --check /tmp/dashboard.js
       - name: Run dashboard rule-matrix tests
-        run: node tests/frontend/test_rule_matrix.js
+        run: |
+          node tests/frontend/test_rule_matrix.js
+          node tests/frontend/test_cards.js

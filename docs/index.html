@@ -90,23 +90,26 @@ footer{color:var(--mute);font-size:.8rem;padding:6px 0 20px}
   <div id="market-analysis" class="grid"></div>
 </section>
 <details><summary>規則說明</summary>
-<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所「每日市場成交資訊」的成交金額（億元），統計口徑可能與新聞常引用的集中市場成交金額不同，量比使用同一來源的連續資料；期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝只顯示期交所夜盤資料，不與日盤合併；夜盤結束後，白天保留最近一次夜盤收盤價，標題會註明夜盤。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比，近月換月時價格可能出現跳動。若資料抓取失敗，保留最後成功數值並顯示原始資料日期，不會以網站更新時間冒充行情時間。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。台指期日盤與夜盤均以期交所官方資料分開呈現；本站不再使用無法穩定解析的第三方網頁報價。加權指數盤中快照優先使用證交所 MIS 即時指數，MI_5MINS_INDEX 僅作備援；排程每 30 分鐘嘗試更新；這是定時擷取快照，不保證準點或即時推播。收盤價以證交所 FMTQIK 正式資料為準，Yahoo 日線僅作歷史分析備援。加權指數的「收盤核對」會在收盤後拿 Yahoo 收盤價和證交所公布值比對，差距超過 0.05% 會標示異常。市場分析中標示「含盤中」代表最新一根日線尚未收盤，指標可能在收盤後變動。市場分析各項目的價格與漲跌，取自同一份行情資料。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所與期交所的資料（外資、成交金額、台指期）只在台股收盤後更新，盤中看到的是上一交易日。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每 30 分鐘、美股交易時段約每 2 小時，另有收盤後的最終更新（GitHub 排程可能延遲）。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p><p>市場分析只追蹤台灣加權指數、費城半導體與標普 500（標普 500 作為大盤背景）。風險訊號矩陣把技術風險評分拆成 5 條規則，逐一顯示每個計分指數是否亮燈與加分；畫面會依均線、RSI、MACD 與動能重算分數並和資料檔核對，不一致時顯示警示。台積電占加權指數比重高、費城半導體也屬同一個 AI／半導體主題，所以這個分數反映台股與其美國對應指數的技術面，不等於整體市場風險。亮燈是技術風險觀察，不是買賣訊號。</p></details>
+<p>支撐:近 60 個交易日(不含今天)的最低價。量比:今日成交量 ÷ 前 20 日平均量。回落:現價相對一年內最高收盤價的跌幅,僅作風險觀察,達 15% 或 25% 代表回落幅度較大,不是買進訊號。量比僅在成交量具可比性且資料有效時顯示。成交量：加權指數為證交所「每日市場成交資訊」的成交金額（億元），統計口徑可能與新聞常引用的集中市場成交金額不同，量比使用同一來源的連續資料；期貨為成交口數；美股指數與匯率沒有可比的成交量，不顯示。台指期（近月）＝一般交易時段的近月合約；台指期（全）＝只顯示期交所夜盤資料，不與日盤合併；夜盤結束後，白天保留最近一次夜盤收盤價，標題會註明夜盤。台指期的歷史由本站每天累積，滿 5 個交易日才開始顯示支撐與量比。近月合約於每月第三個週三到期（遇休市順延）；換月時，本站用舊合約最後一天兩個合約的價差，把換月前的價格平移成連續序列（差價後調），支撐與走勢圖不會因換月跳動；若缺少當天價差，則改用新合約重新累積。量比只和同一合約比較。若資料抓取失敗，保留最後成功數值並顯示原始資料日期，不會以網站更新時間冒充行情時間。外資資料為證交所公布的外資及陸資買賣超(億元)。台股習慣:紅漲綠跌。台指期日盤與夜盤均以期交所官方資料分開呈現；本站不再使用無法穩定解析的第三方網頁報價。加權指數盤中快照優先使用證交所 MIS 即時指數，MI_5MINS_INDEX 僅作備援；排程每 30 分鐘嘗試更新；這是定時擷取快照，不保證準點或即時推播。收盤價以證交所 FMTQIK 正式資料為準，Yahoo 日線僅作歷史分析備援。加權指數的「收盤核對」會在收盤後拿 Yahoo 收盤價和證交所公布值比對，差距超過 0.05% 會標示異常。市場分析中標示「含盤中」代表最新一根日線尚未收盤，指標可能在收盤後變動。市場分析各項目的價格與漲跌，取自同一份行情資料。</p><p>狀態標籤：「盤中」代表該市場正在交易，此時的價格是當下數字、量比不顯示（半天的量不能和整天平均相比），收盤價以收盤後為準；「已收盤」為收盤後資料；「交易中」「休市」用於黃金、石油、匯率；「休市或無新資料」代表交易時段內最新資料日期不是今天（可能是假日）。證交所的資料（外資、成交金額）只在台股收盤後更新，盤中看到的是上一交易日。台指期採期交所開放資料，官方於下一個交易日早上之後才公布（時間不固定，偶爾延到下午），所以台指期卡片最快也是前一交易日的資料，不是即時報價；資料還沒追上時，每次排程都會再查一次，卡片會顯示「尚未公布」（灰黃色，不是錯誤）、「抓取失敗」或「過久未更新」（紅色），並註明上次實際查詢期交所的時間。黃金與石油的量比使用前一個完整交易日。更新時間：台股交易時段每 30 分鐘、美股交易時段約每 2 小時，另有收盤後的最終更新（GitHub 排程可能延遲）。卡片下方的 Yahoo 與 TradingView 連結會開新分頁，免費看盤頁面的報價可能延遲，真正即時請看券商 App。</p><p>市場分析只追蹤台灣加權指數、費城半導體與標普 500（標普 500 作為大盤背景）。風險訊號矩陣把技術風險評分拆成 5 條規則，逐一顯示每個計分指數是否亮燈與加分；畫面會依均線、RSI、MACD 與動能重算分數並和資料檔核對，不一致時顯示警示。台積電占加權指數比重高、費城半導體也屬同一個 AI／半導體主題，所以這個分數反映台股與其美國對應指數的技術面，不等於整體市場風險。亮燈是技術風險觀察，不是買賣訊號。</p></details>
 <footer>資料來自證交所與公開行情來源,可能有延遲或誤差,以官方公告為準。本頁僅為資訊整理,不構成任何投資建議;每個人的資金與風險承受度不同,請自行判斷。</footer>
 </main>
 <script>
 const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LV={ok:"一般",near:"接近支撐",break:"低於支撐"};
 const f=(n,d=2)=>n==null?"—":Number(n).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 const sg=n=>n==null?"—":(n>0?"+":"")+f(n)+"%";
-const row=(l,v)=>v==null?"":`<div>${l}<b>${v}</b></div>`;
-const vol=i=>i.volume==null?null:f(i.volume,0)+" "+(i.volume_unit||"")+(i.volume_note?`（${i.volume_note}）`:"");
+const row=(l,v)=>v==null?"":`<div>${l}<b>${v}</b></div>`; // v 可能含 xc() 產生的標記；傳入的資料字串須先 esc()
+const vol=i=>i.volume==null?null:f(i.volume,0)+" "+esc(i.volume_unit||"")+(i.volume_note?`（${esc(i.volume_note)}）`:"");
 const xc=i=>{const c=i.crosscheck;if(!c)return null;
-  if(c.status==="ok")return `一致（${c.source||"證交所"} ${f(c.official)}）`;
-  if(c.status==="mismatch")return `<span style="color:var(--break)">差 ${sg(c.diff_pct)}（${c.source||"證交所"} ${f(c.official)}）</span>`;
+  if(c.status==="ok")return `一致（${esc(c.source||"證交所")} ${f(c.official)}）`;
+  if(c.status==="mismatch")return `<span style="color:var(--break)">差 ${sg(c.diff_pct)}（${esc(c.source||"證交所")} ${f(c.official)}）</span>`;
   return c.status==="pending"?"待收盤後核對":"無法核對";};
-const tag=i=>i.session?`<span class="sess ${i.session_class||""}">${i.session}</span>`:"";
+const tag=i=>i.session?`<span class="sess ${esc(i.session_class||"")}">${esc(i.session)}</span>`:"";
 const LBL={cmoney_day:"CMoney 日盤即時行情",cmoney_night:"CMoney 夜盤即時行情",wantgoo:"玩股網 台指期",yahoo:"Yahoo 行情",tv:"TradingView K 線"};
-const links=i=>i.links?`<div class="links">${["cmoney_day","cmoney_night","tv","wantgoo","yahoo"].filter(k=>i.links[k]).map(k=>`<a href="${i.links[k]}" target="_blank" rel="noopener noreferrer">${LBL[k]}</a>`).join("")}</div>`:"";
+// 只允許 https: 網址；esc() 擋得住跳出屬性，擋不住 javascript: 等協定。
+const safeUrl=u=>{try{const x=new URL(String(u));return x.protocol==="https:"?x.href:null;}catch(e){return null;}};
+const links=i=>i.links?`<div class="links">${["cmoney_day","cmoney_night","tv","wantgoo","yahoo"].filter(k=>safeUrl(i.links[k])).map(k=>`<a href="${esc(safeUrl(i.links[k]))}" target="_blank" rel="noopener noreferrer">${LBL[k]}</a>`).join("")}</div>`:"";
 function spark(a,sup){
   if(!a||a.length<2)return "";
   const has=sup!=null;if(!has)sup=Math.min(...a);
@@ -115,7 +118,6 @@ function spark(a,sup){
   const p=a.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="近 60 日走勢與支撐線">${has?`<line x1="0" x2="${w}" y1="${y(sup)}" y2="${y(sup)}" stroke="var(--sup)" stroke-dasharray="4 3" stroke-width="1.2"/>`:""}<polyline points="${p}" fill="none" stroke="var(--spark)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
 }
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const RULES=[
   {label:"收盤低於 MA60",pts:25,test:a=>a.close!=null&&a.ma60!=null?a.close<a.ma60:null},
   {label:"MA20 低於 MA60",pts:20,test:a=>a.ma20!=null&&a.ma60!=null?a.ma20<a.ma60:null},
@@ -160,53 +162,74 @@ function marketAnalysis(m){
   if(!m)return "<div class=\"card risk-card\"><span class=\"name\">市場分析資料準備中</span><p class=\"text\">新的技術指標將在下一次成功的行情更新後產生；目前不以舊資料推估日、週、月趨勢。</p></div>";
   const cls=m.risk_score==null?"":m.risk_score>=60?"risk-alert":m.risk_score>=30?"risk-watch":"risk-normal";
   const score=m.risk_score==null?"—":m.risk_score+"/100";
-  const coverage=(m.coverage??0)+"/"+(m.coverage_total??4);
+  const coverage=esc((m.coverage??0)+"/"+(m.coverage_total??4));
   const rt=ruleTable(m);
   const scored=new Set((Array.isArray(m.scored_indices)?m.scored_indices:[]).map(s=>s.sym));
   const tiles=(m.assets||[]).map(a=>{
     const trend=a.stale?"舊資料":a.trend||"資料不足";
-    return "<div class=\"analysis-item\"><span class=\"name\">"+(a.name||a.sym)+(scored.size&&!scored.has(a.sym)?'<span class="sess">未計分</span>':"")+(a.intraday?'<span class="sess open">含盤中</span>':"")+"</span>"+
+    return "<div class=\"analysis-item\"><span class=\"name\">"+esc(a.name||a.sym)+(scored.size&&!scored.has(a.sym)?'<span class="sess">未計分</span>':"")+(a.intraday?'<span class="sess open">含盤中</span>':"")+"</span>"+
       '<div class="pr"><span class="price">'+f(a.close)+'</span><span class="chg '+(a.chg>=0?"up":"dn")+'">'+sg(a.chg)+'</span></div><div class="facts">'+
       row("距 MA20",a.vs_ma20==null?null:sg(a.vs_ma20))+row("距 MA60",a.vs_ma60==null?null:sg(a.vs_ma60))+
-      row("日線",trend)+row("週線",a.weekly||"資料不足")+row("月線",a.monthly||"資料不足")+
-      row("RSI(14)",a.rsi14==null?"資料不足":f(a.rsi14,1))+row("MACD",a.macd_direction||"資料不足")+
-      row("20日動能",a.momentum20==null?"資料不足":sg(a.momentum20))+row("行情日期",a.date||"未知")+
-      row("來源",a.source||"未標示")+row("收盤核對",xc(a))+"</div></div>";
+      row("日線",esc(trend))+row("週線",esc(a.weekly||"資料不足"))+row("月線",esc(a.monthly||"資料不足"))+
+      row("RSI(14)",a.rsi14==null?"資料不足":f(a.rsi14,1))+row("MACD",esc(a.macd_direction||"資料不足"))+
+      row("20日動能",a.momentum20==null?"資料不足":sg(a.momentum20))+row("行情日期",esc(a.date||"未知"))+
+      row("來源",esc(a.source||"未標示"))+row("收盤核對",xc(a))+"</div></div>";
   }).join("");
   return "<div class=\"card risk-card\"><div class=\"risk-head\"><span class=\"name\">台股技術風險評分</span><span class=\"risk-score "+cls+"\">"+score+"</span></div>"+
-    "<span class=\"chip "+(m.risk_score==null?"ok":m.risk_score>=60?"break":m.risk_score>=30?"near":"ok")+"\">"+(m.risk_level||"資料不足")+"</span>"+
-    "<p class=\"text\">"+(m.summary||"目前沒有可用的市場摘要。")+"</p>"+
+    "<span class=\"chip "+(m.risk_score==null?"ok":m.risk_score>=60?"break":m.risk_score>=30?"near":"ok")+"\">"+esc(m.risk_level||"資料不足")+"</span>"+
+    "<p class=\"text\">"+esc(m.summary||"目前沒有可用的市場摘要。")+"</p>"+
     (rt.summary?'<p class="text">'+rt.summary+'</p>':"")+rt.html+
-    "<div class=\"meta\"><span>有效主要指數 "+coverage+"</span><span>分析日期 "+(m.updated||"未知")+"</span></div>"+
+    "<div class=\"meta\"><span>有效主要指數 "+coverage+"</span><span>分析日期 "+esc(m.updated||"未知")+"</span></div>"+
     (dateNote(m.assets||[])?'<p class="analysis-note">'+dateNote(m.assets||[])+'</p>':"")+
-    (m.includes_intraday?'<p class="analysis-note">⚠ 目前含盤中未完成的資料，各項指標與風險分數可能在收盤後變動。</p>':"")+"<p class=\"analysis-note\">評分方法："+(m.method||"未提供")+" 本分數是技術風險觀察，不是預測或買賣訊號。</p>"+
+    (m.includes_intraday?'<p class="analysis-note">⚠ 目前含盤中未完成的資料，各項指標與風險分數可能在收盤後變動。</p>':"")+"<p class=\"analysis-note\">評分方法："+esc(m.method||"未提供")+" 本分數是技術風險觀察，不是預測或買賣訊號。</p>"+
     (tiles?"<div class=\"analysis-grid\">"+tiles+"</div>":"<p class=\"analysis-note\">目前沒有足夠的技術分析資料。</p>")+"</div>";
 }
+const FUT_STATUS={
+  success:{cls:"ok",color:"var(--mute)"},
+  waiting:{cls:"near",color:"var(--near)"},
+  overdue:{cls:"break",color:"var(--break)"},
+  failed:{cls:"break",color:"var(--break)"},
+  unavailable:{cls:"break",color:"var(--break)"}
+};
+const isFut=i=>i.sym==="TX"||i.sym==="TXALL";
+function futStatus(i){
+  if(!isFut(i)||!i.data_status)return "";
+  const st=FUT_STATUS[i.data_status]||FUT_STATUS.failed;
+  const head=i.data_status==="success"?`最新官方資料（${esc((i.date||"").slice(5).replace("-","/"))} ${i.sym==="TXALL"?"夜盤":"收盤"}）`:esc(i.status_note||i.status_label||"");
+  const contract=i.contract?`合約 ${esc(i.contract)}；`:"";
+  const checked=`${contract}上次查詢期交所：${esc(i.checked_at||"尚未查詢")}${i.checked_this_run===false?"（本次排程未查詢：資料已是最新或沿用上次結果）":""}`;
+  const detail=i.fetch_error&&i.data_status==="failed"?`<br><span style="font-size:.7rem">${esc(i.fetch_error)}</span>`:"";
+  const roll=i.contract_note?`<br><span style="color:var(--near)">${esc(i.contract_note)}</span>`:"";
+  return `<p class="text" style="color:${st.color};font-size:.76rem">${head}${detail}<br><span style="color:var(--mute)">${checked}；${esc(i.publish_note||"官方資料於下一個交易日公布，非即時報價")}</span>${roll}</p>`;
+}
 function card(i){
-  if(i.error)return `<div class="card"><div class="name">${i.name}</div><span class="chip break">資料不可用</span><p class="text">${i.error}，稍後會再試。</p>${links(i)}</div>`;
+  if(i.error)return `<div class="card"><div class="name">${esc(i.name)}</div><span class="chip break">資料不可用</span><p class="text">${esc(i.error)}${isFut(i)?"":"，稍後會再試。"}</p>${futStatus(i)}${links(i)}</div>`;
   const showLive=i.sym==="^TWII"&&i.live_date===new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Taipei"})&&i.live_price!=null&&i.live_status!=="closed";
   const shownPrice=showLive?i.live_price:i.close;
   const shownChg=showLive?i.live_chg:i.chg;
   const c=shownChg>=0?"up":"dn";
-  const liveMeta=showLive?`<div class="meta"><span>證交所盤中快照</span><span>${i.live_date} ${i.live_time||""}</span></div>`:"";
-  const sourceMeta=i.source?`<div class="meta"><span>${i.source}</span><span>資料日期 ${i.date||"未知"}</span></div>`:"";
-  const closeMeta=i.close_status_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${i.close_status_note}</p>`:"";
-  const analysisStale=i.technical_stale?`<p class="text" style="color:var(--break);font-size:.74rem">⚠ 技術指標沿用舊資料；原始日期：${i.technical_date||"未知"}</p>`:"";
-  const sessionNote=i.session_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${i.session_note}</p>`:"";
-  const liveError=i.live_status==="failed"?`<p class="text" style="color:var(--break);font-size:.74rem">盤中資料更新失敗；最後成功時間：${i.live_date||"無"} ${i.live_time||""}；${i.live_error||""}</p>`:"";
-  return `<div class="card"><div class="name">${i.name}${tag(i)}</div>
+  const liveMeta=showLive?`<div class="meta"><span>證交所盤中快照</span><span>${esc(i.live_date)} ${esc(i.live_time||"")}</span></div>`:"";
+  const sourceMeta=i.source?`<div class="meta"><span>${esc(i.source)}</span><span>資料日期 ${esc(i.date||"未知")}</span></div>`:"";
+  const checkedMeta=isFut(i)?"":(i.checked_at?"・擷取 "+esc(i.checked_at):"");
+  const priceMeta=i.price_source?`<div class="meta"><span>${esc(i.price_source)}</span><span>資料日期 ${esc(i.price_time||i.date||"未知")}${checkedMeta}</span></div>`:"";
+  const closeMeta=i.close_status_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${esc(i.close_status_note)}</p>`:"";
+  const analysisStale=i.technical_stale?`<p class="text" style="color:var(--break);font-size:.74rem">⚠ 技術指標沿用舊資料；原始日期：${esc(i.technical_date||"未知")}</p>`:"";
+  const sessionNote=i.session_note?`<p class="text" style="color:var(--mute);font-size:.74rem">${esc(i.session_note)}</p>`:"";
+  const liveError=i.live_status==="failed"?`<p class="text" style="color:var(--break);font-size:.74rem">盤中資料更新失敗；最後成功時間：${esc(i.live_date||"無")} ${esc(i.live_time||"")}；${esc(i.live_error||"")}</p>`:"";
+  const staleNote=i.stale&&!isFut(i)?`<p class="text">⚠ 行情更新失敗，以下為舊資料；最後成功資料日期：${esc(i.last_success_date||i.date||"未知")}</p>`:"";
+  return `<div class="card"><div class="name">${esc(i.name)}${tag(i)}</div>
   <div class="pr"><span class="price">${f(shownPrice)}</span><span class="chg ${c}">${sg(shownChg)}</span></div>
-  ${liveMeta}${sourceMeta}${i.price_source?`<div class="meta"><span>${i.price_source}</span><span>資料日期 ${i.price_time||i.date||"未知"}${i.checked_at?"・擷取 "+i.checked_at:""}</span></div>`:""}
+  ${liveMeta}${sourceMeta}${priceMeta}${futStatus(i)}
   ${closeMeta}${analysisStale}${liveError}${sessionNote}
-  <span class="chip ${i.level}">${LV[i.level]||"一般"}</span><p class="text">${i.text}</p>${i.stale?`<p class="text">⚠ 行情更新失敗，以下為舊資料；最後成功資料日期：${i.last_success_date||i.date||"未知"}</p>`:""}
-  <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div>${row("對日盤收盤",i.vs_day_pts==null?null:(i.vs_day_pts>0?"+":"")+f(i.vs_day_pts,0)+" 點（"+sg(i.vs_day_pct)+"）")}${row("成交量",vol(i))}${row("收盤核對",xc(i))}${row("未平倉",i.oi==null?null:f(i.oi,0)+" 口")}${row("距季線",i.vs_ma60==null?null:sg(i.vs_ma60))}${row("一年高點回落",i.drawdown==null?null:f(i.drawdown,1)+"%")}${row("回落觀察",i.drawdown_status)}</div>
-  ${spark(i.spark,i.support)}<div class="meta"><span>支撐 ${f(i.support)}</span><span>${i.date.slice(5)}</span></div>${links(i)}</div>`;
+  <span class="chip ${esc(i.level)}">${LV[i.level]||"一般"}</span><p class="text">${esc(i.text)}</p>${staleNote}
+  <div class="facts"><div>距支撐<b>${sg(i.dist)}</b></div><div>量比<b>${i.vol_ratio==null?esc(i.volume_status||"無有效成交量資料"):f(i.vol_ratio)}</b></div>${row("對日盤收盤",i.vs_day_pts==null?null:(i.vs_day_pts>0?"+":"")+f(i.vs_day_pts,0)+" 點（"+sg(i.vs_day_pct)+"）")}${row("成交量",vol(i))}${row("收盤核對",xc(i))}${row("未平倉",i.oi==null?null:f(i.oi,0)+" 口")}${row("距季線",i.vs_ma60==null?null:sg(i.vs_ma60))}${row("一年高點回落",i.drawdown==null?null:f(i.drawdown,1)+"%")}${row("回落觀察",i.drawdown_status==null?null:esc(i.drawdown_status))}</div>
+  ${spark(i.spark,i.support)}<div class="meta"><span>支撐 ${f(i.support)}</span><span>${esc((i.date||"").slice(5))}</span></div>${links(i)}</div>`;
 }
 function foreign(a,meta){
-  if(!a||!a.length)return meta?`<div class="card wide"><div class="name">外資買賣超(台股)</div><p class="text">${meta.message||"目前無資料"}</p></div>`:"";
-  const m=Math.max(...a.map(x=>Math.abs(x.net_yi)))||1,l=a[a.length-1];
-  const bars=a.map(x=>`<i title="${x.date}: ${x.net_yi} 億" style="height:${Math.max(4,Math.abs(x.net_yi)/m*100)}%;background:var(--${x.net_yi>=0?"up":"down"})"></i>`).join("");
-  return `<div class="card wide"><div class="top"><span class="name">外資買賣超(台股)</span><span class="chg ${l.net_yi>=0?"up":"dn"}">${l.net_yi>0?"+":""}${f(l.net_yi,1)} 億</span></div><div class="bars">${bars}</div><div class="meta" style="margin-top:4px"><span>近 ${a.length} 筆</span><span>盤後資料・${l.date}</span></div><p class="text">${meta?.status==="stale"?"資料更新失敗，以下為舊資料；":meta?.status==="success"?"最新抓取成功；":"既有快照資料；"}${meta?.message||""}</p></div>`;
+  if(!a||!a.length)return meta?`<div class="card wide"><div class="name">外資買賣超(台股)</div><p class="text">${esc(meta.message||"目前無資料")}</p></div>`:"";
+  const m=Math.max(...a.map(x=>Math.abs(Number(x.net_yi)||0)))||1,l=a[a.length-1];
+  const bars=a.map(x=>{const v=Number(x.net_yi)||0;return `<i title="${esc(x.date)}: ${esc(x.net_yi)} 億" style="height:${Math.max(4,Math.abs(v)/m*100)}%;background:var(--${v>=0?"up":"down"})"></i>`;}).join("");
+  return `<div class="card wide"><div class="top"><span class="name">外資買賣超(台股)</span><span class="chg ${l.net_yi>=0?"up":"dn"}">${l.net_yi>0?"+":""}${f(l.net_yi,1)} 億</span></div><div class="bars">${bars}</div><div class="meta" style="margin-top:4px"><span>近 ${a.length} 筆</span><span>盤後資料・${esc(l.date)}</span></div><p class="text">${meta?.status==="stale"?"資料更新失敗，以下為舊資料；":meta?.status==="success"?"最新抓取成功；":"既有快照資料；"}${esc(meta?.message||"")}</p></div>`;
 }
 fetch("data.json?"+Date.now()).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}).then(d=>{
   $("#sub").textContent="程式更新時間 "+(d.updated||"未知")+"(台灣時間)；行情日期請看各卡片";
