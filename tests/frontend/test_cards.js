@@ -2,7 +2,7 @@
 const vm = require("vm"), fs = require("fs"), path = require("path");
 const html = fs.readFileSync(path.join(__dirname, "..", "..", "docs", "index.html"), "utf8");
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-const ctx = { document: { querySelector: () => ({}) }, fetch: () => new Promise(() => {}), console };
+const ctx = { document: { querySelector: () => ({}) }, fetch: () => new Promise(() => {}), console, URL };
 vm.createContext(ctx);
 vm.runInContext(scripts[0], ctx);
 const call = (fn, ...args) => { ctx.__a = args; return vm.runInContext(`${fn}(...__a)`, ctx); };
@@ -20,6 +20,10 @@ const twii = {
 let h = call("card", twii);
 ok(!h.includes("<img"), "card() 跳脫 text / live_error / source / note");
 ok(!h.includes('"><script>'), "連結網址屬性已跳脫");
+h = call("card", { ...twii, text: "", links: { tv: "javascript:alert(1)", yahoo: "JaVaScRiPt:alert(1)", wantgoo: "data:text/html,x", cmoney_day: "http://example.com/" } });
+ok(!/href="(javascript|data|http):/i.test(h) && !h.includes("<a "), "連結只允許 https:（擋 javascript: / data: / http:）");
+h = call("card", { ...twii, text: "", links: { tv: "https://www.tradingview.com/chart/?symbol=TWSE%3ATAIEX" } });
+ok(h.includes('href="https://www.tradingview.com/chart/?symbol=TWSE%3ATAIEX"'), "正常的 https 連結保留");
 h = call("card", { sym: "X", name: EVIL, error: EVIL });
 ok(!h.includes("<img"), "錯誤卡片跳脫 name / error");
 h = call("foreign", [{ date: EVIL, net_yi: 1 }], { status: "success", message: EVIL });
