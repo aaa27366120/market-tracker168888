@@ -764,9 +764,9 @@ def continuous_futures(hist: list[dict[str, Any]]) -> tuple[list[dict[str, Any]]
     return out, rolls
 
 
-FUT_SPREAD_LOOKBACK = 5
+FUT_SPREAD_LOOKBACK = 5  # 換月前最後一天缺少價差時，最多往前找幾筆舊合約資料
 # 量比的分母至少要有幾天「同一合約」的成交量；與支撐的最少天數一致。不足時不算、不標「有效」。
-FUT_VOL_MIN_DAYS = 5  # 換月前最後一天缺少價差時，最多往前找幾筆舊合約資料
+FUT_VOL_MIN_DAYS = 5
 
 
 def _roll_spread(hist: list[dict[str, Any]], i: int, new_month: str | None) -> tuple[float | None, str | None]:
