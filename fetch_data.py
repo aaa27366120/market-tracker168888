@@ -589,8 +589,34 @@ FUT_STATUS_LABEL = {
 # ---------- 台股交易日曆 ----------
 # 期交所與證交所休市日相同。來源：exchange_calendars 的 XTAI（台灣證券交易所）日曆，
 # 涵蓋已公告的國定假日、補假與春節封關前的「僅辦理結算交割、無交易」日。
-# 颱風等臨時休市不在其中，需手動加到 TW_EXTRA_CLOSED。
-TW_EXTRA_CLOSED: frozenset[dt.date] = frozenset()
+# 颱風等臨時休市不在其中，寫在 config/tw_extra_closed.json（可直接在 GitHub 網頁上編輯）。
+# 未來年度的假日是函式庫依規則推算；每年人事行政總處公告辦公日曆後，請核對 XTAI 的休市日，
+# 核對完成後把年份加進 TW_CALENDAR_VERIFIED_YEARS。未核對的年份會在 Actions 顯示警告。
+TW_EXTRA_CLOSED_FILE = os.path.join(os.path.dirname(__file__), "config", "tw_extra_closed.json")
+TW_CALENDAR_VERIFIED_YEARS = frozenset({2026})
+
+
+def load_extra_closed(path: str = TW_EXTRA_CLOSED_FILE) -> frozenset[dt.date]:
+    """讀取臨時休市日。格式：[{"date": "YYYY-MM-DD", "reason": "..."}]。檔案不存在視為沒有；
+    格式錯誤的項目略過並警告，不中斷抓取。"""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            entries = json.load(handle)
+    except FileNotFoundError:
+        return frozenset()
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"::warning title=臨時休市設定::無法讀取 {os.path.basename(path)}：{exc}")
+        return frozenset()
+    days = set()
+    for entry in entries if isinstance(entries, list) else []:
+        try:
+            days.add(dt.date.fromisoformat(str(entry["date"] if isinstance(entry, dict) else entry)))
+        except (KeyError, ValueError):
+            print(f"::warning title=臨時休市設定::略過格式錯誤的項目：{entry!r}")
+    return frozenset(days)
+
+
+TW_EXTRA_CLOSED: frozenset[dt.date] = load_extra_closed()
 
 
 class TradingCalendar:
@@ -656,6 +682,16 @@ def tw_calendar() -> TradingCalendar:
     return _TW_CAL
 
 
+def calendar_warnings(expected: str | None) -> list[str]:
+    cal = tw_calendar()
+    if not cal.covers(dt.date.today()):
+        return []  # 已在載入時警告過
+    if expected and dt.date.fromisoformat(expected).year not in TW_CALENDAR_VERIFIED_YEARS:
+        return [f"{expected[:4]} 年的休市日尚未人工核對（{cal.source}）；請對照人事行政總處辦公日曆，"
+                f"核對後加入 TW_CALENDAR_VERIFIED_YEARS。"]
+    return []
+
+
 def overdue_threshold(expected: str | None) -> int:
     cal = tw_calendar()
     if expected and cal.covers(dt.date.fromisoformat(expected)):
@@ -712,14 +748,12 @@ def continuous_futures(hist: list[dict[str, Any]]) -> tuple[list[dict[str, Any]]
         row = hist[i]
         if row.get("m") != current:
             roll = {"from": row.get("m"), "to": current, "date": hist[i + 1]["date"], "last_old_date": row["date"]}
-            spread = None
-            if row.get("next_m") == current and row.get("next_close") is not None and row.get("close") is not None:
-                spread = row["next_close"] - row["close"]
+            spread, spread_date = _roll_spread(hist, i, current)
             if spread is None:
-                rolls.append({**roll, "spread": None, "adjusted": False})
+                rolls.append({**roll, "spread": None, "spread_date": None, "adjusted": False})
                 break
             adj += spread
-            rolls.append({**roll, "spread": round(spread, 2), "adjusted": True})
+            rolls.append({**roll, "spread": round(spread, 2), "spread_date": spread_date, "adjusted": True})
             current = row.get("m")
         shifted = dict(row)
         for key in ("close", "high", "low"):
@@ -730,14 +764,36 @@ def continuous_futures(hist: list[dict[str, Any]]) -> tuple[list[dict[str, Any]]
     return out, rolls
 
 
+FUT_SPREAD_LOOKBACK = 5
+# 量比的分母至少要有幾天「同一合約」的成交量；與支撐的最少天數一致。不足時不算、不標「有效」。
+FUT_VOL_MIN_DAYS = 5  # 換月前最後一天缺少價差時，最多往前找幾筆舊合約資料
+
+
+def _roll_spread(hist: list[dict[str, Any]], i: int, new_month: str | None) -> tuple[float | None, str | None]:
+    """換月價差（新合約 − 舊合約）。優先用舊合約最後一天；缺少時往前找最近一筆同時記錄到
+    兩個合約價格的資料（最多 FUT_SPREAD_LOOKBACK 筆）。相鄰月份的價差主要反映持有成本，
+    數日內變動有限，用前幾天的價差遠比整段丟掉歷史合理；提示文字會註明實際使用的日期。"""
+    old_month = hist[i].get("m")
+    for j in range(i, max(i - FUT_SPREAD_LOOKBACK, -1), -1):
+        row = hist[j]
+        if row.get("m") != old_month:
+            break
+        if row.get("next_m") == new_month and row.get("next_close") is not None and row.get("close") is not None:
+            return row["next_close"] - row["close"], row["date"]
+    return None, None
+
+
 def roll_note(rolls: list[dict[str, Any]], series_len: int, window: list[dict[str, Any]]) -> str | None:
     shown = {x["date"] for x in window}
     latest = next((r for r in rolls if r["date"] in shown or not r["adjusted"]), None)
     if not latest:
         return None
     if latest["adjusted"]:
-        return (f"{latest['date']} 起近月改為 {latest['to']} 合約；換月前的價格已依 {latest['last_old_date']} "
-                f"兩合約價差（{latest['spread']:+,.0f} 點）調整，支撐與走勢圖為連續序列。")
+        basis = latest.get("spread_date") or latest["last_old_date"]
+        fallback = (f"（{latest['last_old_date']} 缺少價差資料，改用最近一筆）"
+                    if basis != latest["last_old_date"] else "")
+        return (f"{latest['date']} 起近月改為 {latest['to']} 合約；換月前的價格已依 {basis} "
+                f"兩合約價差（{latest['spread']:+,.0f} 點）調整{fallback}，支撐與走勢圖為連續序列。")
     return (f"{latest['date']} 起近月改為 {latest['to']} 合約；缺少換月當天的兩合約價差，"
             f"支撐與量比改用新合約重新累積（{series_len}/60 天）。")
 
@@ -748,11 +804,11 @@ def expiry_note(last: dict[str, Any]) -> str | None:
         return None
     expiry = contract_last_trading_day(month)
     data_day = dt.date.fromisoformat(last["date"])
-    nxt = last.get("next_m") or "下一個月份合約"
+    nxt = f"改以 {last['next_m']} 合約為近月" if last.get("next_m") else "改以下一月份合約為近月"
     if data_day == expiry:
-        return f"此為 {month} 合約最後交易日的資料；下一筆起改以 {nxt} 為近月。"
+        return f"此為 {month} 合約最後交易日的資料；下一筆起{nxt}。"
     if data_day < expiry and tw_calendar().trading_days_between(data_day, expiry) <= 3:
-        return f"近月合約 {month} 將於 {expiry.month}/{expiry.day} 到期，之後改以 {nxt} 為近月，價格可能出現價差。"
+        return f"近月合約 {month} 將於 {expiry.month}/{expiry.day} 到期，之後{nxt}，價格可能出現價差。"
     return None
 
 
@@ -830,6 +886,7 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], now: dt.datetime |
     lows = [x["low"] for x in prior if x.get("low") is not None]
     # 量比只比同一個合約：換月前後兩個合約的成交量不可比（舊合約到期前量會萎縮）。
     vols = [x["vol"] for x in prior[-20:] if x.get("vol") and x.get("m") == last.get("m")]
+    vol_ready = len(vols) >= FUT_VOL_MIN_DAYS
     is_night = sym == "TXALL"
     session_text = "最近夜盤收盤" if is_night else "最近日盤收盤"
     if is_night and now is not None:
@@ -855,13 +912,14 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], now: dt.datetime |
     if len(lows) >= 5:
         item["support"] = min(lows)
         item["dist"] = round((last["close"] / item["support"] - 1) * 100, 1)
-        if vols and last.get("vol") and not stale:
+        if vol_ready and last.get("vol") and not stale:
             item["vol_ratio"] = round(last["vol"] / (sum(vols) / len(vols)), 2)
             item["volume_status"] = "有效"
         elif stale:
             item["volume_status"] = "資料過舊"
-        elif not vols:
-            item["volume_status"] = "換月後累積中"
+        elif not vol_ready:
+            prefix = "換月後累積中" if rolls else "累積中"
+            item["volume_status"] = f"{prefix}（{len(vols)}/{FUT_VOL_MIN_DAYS}）"
         else:
             item["volume_status"] = "盤中不顯示"
         item["text"], item["level"] = judge(last["close"], item["support"], item["dist"], item["vol_ratio"])
@@ -1297,7 +1355,9 @@ def main(now_utc: dt.datetime | None = None) -> None:
             "source_date": None, "checked_at": now.strftime("%Y-%m-%d %H:%M"),
         }
 
-    print(f"[交易日曆] {tw_calendar().source}")
+    print(f"[交易日曆] {tw_calendar().source}；臨時休市 {len(TW_EXTRA_CLOSED)} 天")
+    for message in calendar_warnings(fut_items[0].get("expected_date") if fut_items else None):
+        print(f"::warning title=交易日曆::{message}")
     for fi in fut_items:
         print(futures_log_line(fi))
         if fi.get("contract_note"):

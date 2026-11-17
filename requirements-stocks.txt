@@ -1,0 +1,2 @@
+# update-stocks.yml（stock_data.py）只需要 requests；版本與 requirements.txt 共用此處的鎖定。
+requests==2.34.2

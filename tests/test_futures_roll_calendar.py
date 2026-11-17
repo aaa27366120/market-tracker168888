@@ -95,7 +95,8 @@ class ContractExpiryTests(CalendarCase):
         self.assertEqual(fetch_data.contract_last_trading_day("202602"), D(2026, 2, 23))
 
     def test_expiry_notes(self):
-        self.assertIn("將於 11/18 到期", fetch_data.expiry_note(row("2026-11-16", "202611", 1, "202612", 1)))
+        self.assertIn("將於 11/18 到期，之後改以 202612 合約為近月", fetch_data.expiry_note(row("2026-11-16", "202611", 1, "202612", 1)))
+        self.assertIn("之後改以下一月份合約為近月", fetch_data.expiry_note(row("2026-11-16", "202611", 1)))
         self.assertIn("最後交易日", fetch_data.expiry_note(row("2026-11-18", "202611", 1, "202612", 1)))
         self.assertIsNone(fetch_data.expiry_note(row("2026-11-09", "202611", 1, "202612", 1)))
 
@@ -149,10 +150,87 @@ class ContinuousSeriesTests(CalendarCase):
         # 支撐 = 換月前最低價（40002 - 50）+ 價差 100
         self.assertEqual(item["support"], 40052)
         self.assertIsNone(item["vol_ratio"])
-        self.assertEqual(item["volume_status"], "換月後累積中")
+        self.assertEqual(item["volume_status"], "換月後累積中（0/5）")
         self.assertIn("2026-11-19 起近月改為 202612 合約", item["contract_note"])
         self.assertIn("價差（+100 點）", item["contract_note"])
         self.assertEqual(item["spark"][0], 40102)
+
+
+    def roll_hist(self, new_days, last_old_has_spread=True):
+        old = [row(f"2026-11-{d:02d}", "202611", 40000 + d, "202612", 40100 + d, vol=50000)
+               for d in (2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17)]
+        last_old = row("2026-11-18", "202611", 40018, "202612", 40118, vol=50000)
+        if not last_old_has_spread:
+            last_old = row("2026-11-18", "202611", 40018, vol=50000)  # 舊程式抓的：沒有次近月價格
+        new = [row(f"2026-11-{d:02d}", "202612", 40300 + d, "202701", 40400, vol=60000)
+               for d in (19, 20, 23, 24, 25, 26)[:new_days]]
+        return old + [last_old] + new
+
+    def test_volume_ratio_waits_for_five_same_contract_days(self):
+        # PR #13 review：換月後第 2 筆資料只有 1 天分母，不能標「有效」。
+        def morning_after(hist):  # 資料公布後的那個早上：狀態是最新，只看量比本身
+            day = TEST_CAL.next_trading_day(D.fromisoformat(hist[-1]["date"]))
+            return dt.datetime(day.year, day.month, day.day, 9, 0, tzinfo=fetch_data.TZ_TAIPEI)
+
+        for new_days, expected in ((2, "換月後累積中（1/5）"), (5, "換月後累積中（4/5）")):
+            hist = self.roll_hist(new_days)
+            item = fetch_data.fut_item("TX", "x", hist, morning_after(hist))
+            self.assertEqual(item["data_status"], "success")
+            self.assertIsNone(item["vol_ratio"], new_days)
+            self.assertEqual(item["volume_status"], expected)
+        hist = self.roll_hist(6)
+        item = fetch_data.fut_item("TX", "x", hist, morning_after(hist))
+        self.assertEqual(item["volume_status"], "有效")
+        self.assertEqual(item["vol_ratio"], 1.0)
+
+    def test_spread_falls_back_to_most_recent_old_contract_day(self):
+        # PR #13 review：舊合約最後一天沒有記錄到次近月價格時，改用前一筆的價差，不丟掉歷史。
+        hist = self.roll_hist(1, last_old_has_spread=False)
+        series, rolls = fetch_data.continuous_futures(hist)
+        self.assertEqual(len(series), len(hist))
+        self.assertEqual((rolls[0]["spread"], rolls[0]["spread_date"]), (100, "2026-11-17"))
+        self.assertEqual(series[-2]["close"], 40118)
+        note = fetch_data.roll_note(rolls, len(series), series)
+        self.assertIn("依 2026-11-17 兩合約價差（+100 點）調整（2026-11-18 缺少價差資料，改用最近一筆）", note)
+
+    def test_spread_fallback_is_bounded(self):
+        hist = [row(f"2026-11-{d:02d}", "202611", 40000) for d in (9, 10, 11, 12, 13, 16, 17, 18)]
+        hist[0].update({"next_m": "202612", "next_close": 40100})  # 超過 5 筆前，不採用
+        hist.append(row("2026-11-19", "202612", 40300))
+        series, rolls = fetch_data.continuous_futures(hist)
+        self.assertFalse(rolls[0]["adjusted"])
+        self.assertEqual(len(series), 1)
+
+
+class ExtraClosedTests(unittest.TestCase):
+    def write(self, content):
+        import tempfile, os
+        handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+        handle.write(content)
+        handle.close()
+        self.addCleanup(os.remove, handle.name)
+        return handle.name
+
+    def test_reads_dates_and_skips_bad_entries(self):
+        path = self.write('[{"date": "2026-09-01", "reason": "颱風"}, "2026-09-02", {"date": "bad"}, {}]')
+        self.assertEqual(fetch_data.load_extra_closed(path), frozenset({D(2026, 9, 1), D(2026, 9, 2)}))
+
+    def test_missing_or_broken_file_is_empty(self):
+        self.assertEqual(fetch_data.load_extra_closed("/nonexistent/x.json"), frozenset())
+        self.assertEqual(fetch_data.load_extra_closed(self.write("{not json")), frozenset())
+
+    def test_repo_config_file_is_valid(self):
+        import json
+        with open(fetch_data.TW_EXTRA_CLOSED_FILE, encoding="utf-8") as handle:
+            self.assertIsInstance(json.load(handle), list)
+
+
+class CalendarVerificationTests(CalendarCase):
+    def test_unverified_year_warns(self):
+        with patch.object(fetch_data, "_TW_CAL", fetch_data.TradingCalendar(
+                frozenset(), D(2000, 1, 1), D(2100, 1, 1), "test")):
+            self.assertEqual(fetch_data.calendar_warnings("2026-11-16"), [])
+            self.assertIn("2027 年的休市日尚未人工核對", fetch_data.calendar_warnings("2027-01-04")[0])
 
 
 class TxRowsNextMonthTests(unittest.TestCase):
