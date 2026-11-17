@@ -49,6 +49,9 @@ ok(!h.includes("行情更新失敗"), "尚未公布時不誤報「更新失敗�
 h = call("card", fut({ data_status: "failed", stale: true, fetch_error: EVIL,
   status_note: "期交所連線或解析失敗，顯示上一筆資料（2026-11-13）。" }));
 ok(h.includes("連線或解析失敗") && h.includes("var(--break)") && !h.includes("<img"), "抓取失敗：紅字，錯誤內容已跳脫");
+h = call("card", fut({ data_status: "success", stale: false, contract: "202612",
+  contract_note: "2026-11-19 起近月改為 202612 合約；換月前的價格已依 2026-11-18 兩合約價差（+100 點）調整" + EVIL }));
+ok(h.includes("合約 202612") && h.includes("價差（+100 點）") && !h.includes("<img"), "顯示合約月份與換月說明（已跳脫）");
 h = call("card", fut({ data_status: "success", checked_this_run: false }));
 ok(h.includes("本次排程未查詢"), "本次沒查詢時明確標示");
 

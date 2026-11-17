@@ -2,3 +2,5 @@
 yfinance==1.8.0
 pandas==3.1.1
 requests==2.34.2
+# 台股交易日曆（XTAI）：台指期預期日期、落後天數與合約到期日
+exchange_calendars==4.13.3

@@ -10,6 +10,25 @@ from unittest.mock import patch
 
 import fetch_data
 
+# 測試一律使用固定的日曆，結果不受 exchange_calendars 版本影響。
+# 2026 年 11 月沒有國定假日；需要假日的測試以 with_calendar() 另外注入。
+TEST_CAL = fetch_data.TradingCalendar(
+    frozenset(), dt.date(2026, 1, 1), dt.date(2026, 12, 31), "test")
+_saved_cal = None
+
+
+def setUpModule():
+    global _saved_cal
+    _saved_cal, fetch_data._TW_CAL = fetch_data._TW_CAL, TEST_CAL
+
+
+def tearDownModule():
+    fetch_data._TW_CAL = _saved_cal
+
+
+def with_calendar(cal):
+    return patch.object(fetch_data, "_TW_CAL", cal)
+
 
 def at(day, hour, minute=0):
     return dt.datetime(2026, 11, day, hour, minute, tzinfo=fetch_data.TZ_TAIPEI)
@@ -97,26 +116,40 @@ class UpdateFuturesTests(unittest.TestCase):
             self.assertTrue(item["stale"])
             self.assertEqual(item["days_behind"], 3)
 
-    def test_two_days_behind_is_still_waiting(self):
+    def test_two_days_behind_is_overdue_with_calendar(self):
         _, items = self.run_update(
             {"TX": [row("2026-11-12")], "TXALL": [row("2026-11-12", session="night")]}, at(17, 12))
+        for item in items:
+            self.assertEqual(item["data_status"], "overdue")
+            self.assertEqual(item["days_behind"], 2)
+
+    def test_without_calendar_two_days_behind_stays_waiting(self):
+        # 日曆無法載入（或超出範圍）時退回平日近似，門檻放寬為 3。
+        with with_calendar(fetch_data.TradingCalendar()):
+            _, items = self.run_update(
+                {"TX": [row("2026-11-12")], "TXALL": [row("2026-11-12", session="night")]}, at(17, 12))
         for item in items:
             self.assertEqual(item["data_status"], "waiting")
             self.assertFalse(item["stale"])
 
     def test_single_holiday_never_turns_red(self):
-        # PR #13 review：週三休市、手上最新週二。交易日曆接上前，假日會被算成一個交易日，
-        # 週五會被算成落後 2 天；這不能變紅，也不能發出 ::warning::。
+        # PR #13 review：週三休市、手上最新週二。交易日曆把假日排除後，週四、週五都只落後 1 天。
+        holiday_cal = fetch_data.TradingCalendar(
+            frozenset({dt.date(2026, 11, 18)}), dt.date(2026, 1, 1), dt.date(2026, 12, 31), "test")
         hist = {"TX": [row("2026-11-17")], "TXALL": [row("2026-11-17", session="night")]}
-        for moment in (at(19, 10), at(20, 8), at(20, 15)):
-            with patch.object(fetch_data, "tx_rows", return_value={"x": {}}), patch.object(
-                fetch_data, "fut_records", return_value={"TX": [], "TXALL": []}
-            ):
-                _, items = fetch_data.update_futures(hist, fetch=True, now=moment)
-            for item in items:
-                self.assertEqual(item["data_status"], "waiting", moment)
-                self.assertFalse(item["stale"], moment)
-                self.assertLess(item["days_behind"], fetch_data.FUT_OVERDUE_DAYS)
+        with with_calendar(holiday_cal):
+            # 週四：週二已是最新（週三休市）；週五：只落後週四一天。
+            for moment, status, lag in ((at(19, 10), "success", 0), (at(20, 8), "waiting", 1), (at(20, 15), "waiting", 1)):
+                with patch.object(fetch_data, "tx_rows", return_value={"x": {}}), patch.object(
+                    fetch_data, "fut_records", return_value={"TX": [], "TXALL": []}
+                ):
+                    _, items = fetch_data.update_futures(hist, fetch=True, now=moment)
+                for item in items:
+                    self.assertEqual(item["data_status"], status, moment)
+                    self.assertFalse(item["stale"], moment)
+                    self.assertEqual(item["days_behind"], lag, moment)
+            # 週四 10:00：預期日期跳過週三假日，仍是週二，資料已是最新。
+            self.assertEqual(fetch_data.expected_futures_dates(at(19, 10))["TX"], "2026-11-17")
 
     def test_sessions_are_judged_independently(self):
         _, items = self.run_update(
