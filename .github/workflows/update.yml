@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: 安裝依賴
-        run: pip install yfinance pandas requests
+        run: pip install -r requirements.txt
       - name: 更新市場資料
         run: python fetch_data.py
       - name: 驗證資料檔

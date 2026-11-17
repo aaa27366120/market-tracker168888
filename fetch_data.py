@@ -412,32 +412,6 @@ def pick(r: dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def tx_rows() -> dict[str, dict[str, dict[str, Any]]]:
-    """{YYYYMMDD: {"day": 近月一般盤, "night": 近月盤後}}"""
-    resp = retry(requests.get, FUT_URL, timeout=30)
-    resp.raise_for_status()
-    rows = resp.json()
-    by: dict[str, dict[str, dict[str, Any]]] = {}
-    for r in rows:
-        if pick(r, "Contract", "契約") not in ("TX", "臺股期貨"):
-            continue
-        m = str(pick(r, "ContractMonth(Week)", "到期月份(週別)") or "")
-        d = re.sub(r"\D", "", str(pick(r, "Date", "日期") or ""))
-        if not (m.isdigit() and len(m) == 6 and len(d) == 8):
-            continue  # 排除週契約與格式不明的列
-        sess = str(pick(r, "TradingSession", "交易時段") or "")
-        k = "night" if ("盤後" in sess or "after" in sess.lower()) else "day"
-        row = {"m": m, "high": num(pick(r, "High", "最高價")), "low": num(pick(r, "Low", "最低價")),
-               "last": num(pick(r, "Last", "最後成交價")), "chg_pct": signed_num(pick(r, "%", "漲跌%")),
-               "vol": num(pick(r, "Volume", "成交量")), "oi": num(pick(r, "OpenInterest", "未沖銷契約量"))}
-        cur = by.setdefault(d, {}).get(k)
-        if cur is None or m < cur["m"]:
-            by[d][k] = row
-    if not by:
-        print("台指期：沒解析到資料，第一列欄位為", list(rows[0].keys()) if rows else "空")
-    return by
-
-
 def fut_records(by: dict) -> dict[str, list[dict[str, Any]]]:
     """台指期=只取一般盤；台指期（全）=只取夜盤，絕不合併兩個時段。"""
     out: dict[str, list[dict[str, Any]]] = {"TX": [], "TXALL": []}
@@ -584,23 +558,124 @@ def web_newer(sym: str, q: dict[str, Any], last_date: str) -> bool:
     return bool(qt) and (qt[:10] > last_date if sym == "TX" else qt > f"{last_date} 13:45")
 
 
+# ---------- 台指期新鮮度模型 ----------
+# 第一性原理：卡片要回答的只有一個問題——「畫面上的數字，是不是期交所目前已公布的最新一筆？」
+# 期交所 DailyMarketReportFut 在交易日 D 的「隔天早上」才公布 D（實測 07:46、08:59，也曾延到下午），
+# 從不在 D 當天公布。所以：
+#   預期日期 = 最近一個 07:00 所在日的前一個工作日（從不預期當天）
+#   手上最新日期 < 預期日期 → 每次排程都去查一次（不再限制時段）；已追上 → 不查。
+#   狀態由「日期落後幾個交易日」與「這次請求是否出錯」決定，兩者分開。
+FUT_PUBLISH_FROM = dt.time(7, 0)
+FUT_STATUS_LABEL = {
+    "success": "最新", "waiting": "尚未公布", "overdue": "過久未更新",
+    "failed": "抓取失敗", "unavailable": "無資料",
+}
+
+
+def _previous_weekday(day: dt.date) -> dt.date:
+    day -= dt.timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= dt.timedelta(days=1)
+    return day
+
+
+def expected_futures_dates(now: dt.datetime) -> dict[str, str]:
+    """目前「最晚可能已公布」的期交所交易日期（日盤、夜盤相同）。
+
+    交易日 D 的資料最早在 D+1 07:00 後出現，所以只要現在已過 07:00，
+    預期日期就是今天的前一個工作日；07:00 前則再往前推一天。
+    休市日曆未建模：國定假日隔天會顯示「尚未公布」（灰色），不會誤報失敗。
+    """
+    local = now.astimezone(TZ_TAIPEI)
+    ref = local.date() if local.time() >= FUT_PUBLISH_FROM else local.date() - dt.timedelta(days=1)
+    expected = _previous_weekday(ref).isoformat()
+    return {"TX": expected, "TXALL": expected}
+
+
+def trading_days_behind(latest: str | None, expected: str) -> int | None:
+    """latest 落後 expected 幾個工作日（0 表示已追上）。"""
+    if not latest:
+        return None
+    lo, hi = dt.date.fromisoformat(latest), dt.date.fromisoformat(expected)
+    count, day = 0, hi
+    while day > lo:
+        if day.weekday() < 5:
+            count += 1
+        day -= dt.timedelta(days=1)
+    return count
+
+
+def futures_fetch_due(hist: dict[str, Any], now: dt.datetime) -> bool:
+    """任何一個時段的最新資料還沒追上預期日期，就需要查詢期交所。"""
+    expected = expected_futures_dates(now)
+    for key in ("TX", "TXALL"):
+        rows = (hist or {}).get(key) or []
+        if key == "TXALL":
+            rows = [x for x in rows if x.get("session") == "night"]
+        latest = rows[-1].get("date") if rows else None
+        if not latest or latest < expected[key]:
+            return True
+    return False
+
+
 def quote_age_hours(qt: str, now: dt.datetime | None) -> float:
     if now is None:
         return 0.0
     return (now.replace(tzinfo=None) - dt.datetime.strptime(qt, "%Y-%m-%d %H:%M")).total_seconds() / 3600
 
 
+def _fut_status(latest: str | None, expected: str | None, fetch_error: str | None,
+                attempted: bool) -> tuple[str, int | None]:
+    if not latest:
+        return ("failed" if fetch_error else "unavailable"), None
+    if not expected:
+        return "success", 0
+    lag = trading_days_behind(latest, expected) or 0
+    if lag == 0:
+        return "success", 0
+    if fetch_error and attempted:
+        return "failed", lag
+    return ("waiting" if lag == 1 else "overdue"), lag
+
+
+def _fut_note(status: str, latest: str | None, expected: str | None, lag: int | None,
+              fetch_error: str | None) -> str | None:
+    if status == "waiting":
+        return f"期交所尚未公布 {expected} 資料，目前顯示 {latest}；之後每次排程都會自動再檢查。"
+    if status == "overdue":
+        return f"已落後 {lag} 個交易日沒有新資料（最新 {latest}，預期 {expected}），請留意。"
+    if status == "failed":
+        return f"期交所連線或解析失敗，顯示上一筆資料（{latest or '無'}）。"
+    if status == "unavailable":
+        return "尚無可用的期交所官方資料。"
+    return None
+
+
 def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None, ok: bool,
              web: dict[str, Any] | None = None, now: dt.datetime | None = None,
-             freshness_error: str | None = None) -> dict[str, Any]:
+             freshness_error: str | None = None, *, attempted: bool = True,
+             checked_at: str | None = None, previous_error: str | None = None) -> dict[str, Any]:
+    """建立台指期卡片。ok 參數保留相容；實際狀態由日期落後與 freshness_error 判斷。"""
+    expected = expected_futures_dates(now).get(sym) if now is not None else None
+    latest = hist[-1]["date"] if hist else None
+    error = freshness_error or previous_error
+    if not ok and not error:
+        error = "本次期交所官方資料未成功取得"
+    status, lag = _fut_status(latest, expected, error, attempted or bool(previous_error))
+    if not ok and expected is None and hist:
+        status = "failed"
+    note = _fut_note(status, latest, expected, lag, error)
+    stale = status in ("failed", "overdue", "unavailable")
+    common = {
+        "data_status": status, "status_label": FUT_STATUS_LABEL[status], "status_note": note,
+        "expected_date": expected, "days_behind": lag,
+        "checked_at": checked_at, "checked_this_run": attempted,
+        "publish_note": "官方資料於下一個交易日公布，非即時報價",
+    }
+    if error:
+        common["fetch_error"] = error
     if not hist:
-        return {
-            "sym": sym, "name": name,
-            "error": freshness_error or "尚無可用的期交所官方資料",
-            "fetch_error": freshness_error,
-            "stale": True,
-            "data_status": "failed" if freshness_error else "unavailable",
-        }
+        return {"sym": sym, "name": name, "error": note, "stale": True, **common}
     last = hist[-1]
     prior = hist[:-1][-SUPPORT_DAYS:]
     lows = [x["low"] for x in prior if x.get("low") is not None]
@@ -616,66 +691,68 @@ def fut_item(sym: str, name: str, hist: list[dict[str, Any]], live: tuple | None
         "date": last["date"], "close": last["close"], "chg": last.get("chg_pct"),
         "oi": last.get("oi"), "volume": last.get("vol"), "volume_unit": "口",
         "support": None, "dist": None, "vol_ratio": None,
-        "volume_status": "累積中", "level": "ok", "stale": not ok,
+        "volume_status": "累積中", "level": "ok", "stale": stale,
         "history_days": len(hist), "spark": [x["close"] for x in hist[-SUPPORT_DAYS:]],
         "price_source": "期交所官方・夜盤" if is_night else "期交所官方・日盤",
         "price_time": last["date"], "session": session_text,
         "session_class": "open" if session_text == "夜盤時段" else "closed",
-        "checked_at": now.strftime("%Y-%m-%d %H:%M") if now is not None else None,
-        "data_status": "success" if ok else "failed",
         "last_success_date": last["date"],
+        **common,
     }
     if len(lows) >= 5:
         item["support"] = min(lows)
         item["dist"] = round((last["close"] / item["support"] - 1) * 100, 1)
-        if vols and last.get("vol") and not item["stale"]:
+        if vols and last.get("vol") and not stale:
             item["vol_ratio"] = round(last["vol"] / (sum(vols) / len(vols)), 2)
             item["volume_status"] = "有效"
-        elif item["stale"]:
-            item["volume_status"] = "資料更新失敗"
+        elif stale:
+            item["volume_status"] = "資料過舊"
         else:
             item["volume_status"] = "盤中不顯示"
         item["text"], item["level"] = judge(last["close"], item["support"], item["dist"], item["vol_ratio"])
     else:
         item["text"] = f"歷史資料累積中（{len(hist)}/60 天）"
-    if not ok:
-        item["text"] = f"期交所資料更新失敗，顯示舊資料（最後成功日期：{last['date']}）"
-        item["fetch_error"] = freshness_error or "本次期交所官方資料未成功取得"
+    if stale:
+        item["text"] = note
     if is_night:
         item["session_note"] = (
             "此卡只顯示期交所已公布的最近夜盤資料，不含日盤；"
-            "資料日期是交易資料日期，擷取時間另列，夜盤交易中不代表即時逐筆報價。"
+            "依期交所規則，夜盤歸屬「下一個交易日」，例如週一的夜盤資料其實是上週五晚上的交易。"
         )
     return item
 
 
-def _previous_weekday(day: dt.date) -> dt.date:
-    day -= dt.timedelta(days=1)
-    while day.weekday() >= 5:
-        day -= dt.timedelta(days=1)
-    return day
-
-
-def expected_futures_dates(now: dt.datetime) -> dict[str, str] | None:
-    """依期交所每日行情 API 的資料發布時點判斷日盤、夜盤預期日期。
-
-    期交所 API 約在日盤結束後（下午）才一起放出當天的日盤與夜盤資料；
-    夜盤日期是交易量的「歸屬日」，不是夜盤開盤的日曆日期。
-    因此早上 07:00–09:00 窗口，日盤與夜盤預期日期相同，都是前一個工作日。
-    16:00 後則預期當天（週末回推至前一個工作日）。休市日曆尚未建模。
-    """
-    local = now.astimezone(TZ_TAIPEI)
-    if local.time() < dt.time(7, 0):
-        return None
-    today = local.date()
-    if local.time() >= dt.time(16, 0):
-        session_date = today if today.weekday() < 5 else _previous_weekday(today)
-        day_date = night_date = session_date
-    elif dt.time(7, 0) <= local.time() < dt.time(9, 0):
-        day_date = night_date = _previous_weekday(today)
-    else:
-        return None
-    return {"TX": day_date.isoformat(), "TXALL": night_date.isoformat()}
+def tx_rows() -> dict[str, dict[str, dict[str, Any]]]:
+    """{YYYYMMDD: {"day": 近月一般盤, "night": 近月盤後}}；回應異常時拋出含 HTTP 診斷的錯誤。"""
+    resp = retry(requests.get, FUT_URL, timeout=30)
+    diagnostic = _http_response_diagnostic(resp)
+    try:
+        resp.raise_for_status()
+        rows = resp.json()
+    except Exception as exc:
+        raise RuntimeError(f"期交所回應處理失敗：{type(exc).__name__}: {exc}；{diagnostic}") from exc
+    if not isinstance(rows, list):
+        raise RuntimeError(f"期交所回應不是清單；{diagnostic}")
+    by: dict[str, dict[str, dict[str, Any]]] = {}
+    for r in rows:
+        if not isinstance(r, dict) or pick(r, "Contract", "契約") not in ("TX", "臺股期貨"):
+            continue
+        m = str(pick(r, "ContractMonth(Week)", "到期月份(週別)") or "")
+        d = re.sub(r"\D", "", str(pick(r, "Date", "日期") or ""))
+        if not (m.isdigit() and len(m) == 6 and len(d) == 8):
+            continue  # 排除週契約與格式不明的列
+        sess = str(pick(r, "TradingSession", "交易時段") or "")
+        k = "night" if ("盤後" in sess or "after" in sess.lower()) else "day"
+        row = {"m": m, "high": num(pick(r, "High", "最高價")), "low": num(pick(r, "Low", "最低價")),
+               "last": num(pick(r, "Last", "最後成交價")), "chg_pct": signed_num(pick(r, "%", "漲跌%")),
+               "vol": num(pick(r, "Volume", "成交量")), "oi": num(pick(r, "OpenInterest", "未沖銷契約量"))}
+        cur = by.setdefault(d, {}).get(k)
+        if cur is None or m < cur["m"]:
+            by[d][k] = row
+    if not by:
+        first = list(rows[0].keys()) if rows and isinstance(rows[0], dict) else "空"
+        raise RuntimeError(f"期交所回應中沒有可解析的台指期資料（共 {len(rows)} 列，第一列欄位：{first}）")
+    return by
 
 
 def update_futures(hist: dict[str, Any], fetch: bool = True,
@@ -684,57 +761,49 @@ def update_futures(hist: dict[str, Any], fetch: bool = True,
     hist = {k: list(v) for k, v in (hist or {}).items()}
     # 舊版 TXALL 是日夜盤混合值，沒有 session 標記，不能再當作夜盤歷史。
     hist["TXALL"] = [x for x in hist.get("TXALL", []) if x.get("session") == "night"]
-    records: dict[str, list[dict[str, Any]]] = {"TX": [], "TXALL": []}
-    errors: dict[str, str | None] = {"TX": None, "TXALL": None}
-    try:
-        by = tx_rows() if fetch else {}
-        if fetch:
-            records = fut_records(by) if by else {"TX": [], "TXALL": []}
-        for key in ("TX", "TXALL"):
-            session_records = records.get(key, [])
-            if fetch and not session_records:
-                errors[key] = "期交所本次回應未包含此交易時段資料"
-            if session_records:
-                merged = {x["date"]: x for x in hist.get(key, [])}
-                merged.update({x["date"]: x for x in session_records})
-                hist[key] = [merged[d] for d in sorted(merged)][-130:]
-            # DailyMarketReportFut 的夜盤日期依期交所交易日歸屬規則標示。
-            # 此資料約於夜盤結束後 07:00 產製；在可預期的工作日更新窗口，
-            # 必須確認每個時段都已取得當日資料，不能用另一時段的成功掩蓋缺漏。
-            if fetch and session_records and now is not None:
-                expected = expected_futures_dates(now)
-                expected_date = expected.get(key) if expected else None
-                if expected_date:
-                    latest_date = max(x.get("date", "") for x in session_records)
-                    if latest_date < expected_date:
-                        errors[key] = (
-                            f"期交所{'夜盤' if key == 'TXALL' else '日盤'}資料日期為 "
-                            f"{latest_date or '未知'}，預期 {expected_date}"
-                        )
-    except Exception as exc:
-        for key in ("TX", "TXALL"):
-            errors[key] = f"期交所資料更新失敗：{exc}"
-        print(f"台指期更新失敗：{exc}")
+    error: str | None = None
+    checked_now = now.strftime("%Y-%m-%d %H:%M") if now is not None else None
+    if fetch:
+        try:
+            records = fut_records(tx_rows())
+            for key in ("TX", "TXALL"):
+                if records.get(key):
+                    merged = {x["date"]: x for x in hist.get(key, [])}
+                    merged.update({x["date"]: x for x in records[key]})
+                    hist[key] = [merged[d] for d in sorted(merged)][-130:]
+        except Exception as exc:
+            error = str(exc)
+            print(f"[台指期] 查詢失敗：{exc}")
 
     items = []
     previous_items = previous_items or {}
     for key, name in (("TX", "台指期（近月）"), ("TXALL", "台指期（全）・夜盤")):
-        # 非更新時段沿用上一輪的失敗狀態；不能因 fetch=False 就把舊資料洗成成功。
-        if not fetch:
-            previous = previous_items.get(key) or {}
-            if previous.get("stale") or previous.get("data_status") == "failed":
-                errors[key] = (
-                    previous.get("fetch_error")
-                    or previous.get("error")
-                    or "上次期交所資料更新失敗，等待下一次官方資料更新"
-                )
-        ok = errors[key] is None
+        previous = previous_items.get(key) or {}
+        previous_error = None
+        if not fetch and previous.get("data_status") == "failed":
+            # 本次沒查詢：上一次真正查詢時失敗的事實要保留，不能洗成成功或「尚未公布」。
+            previous_error = previous.get("fetch_error") or previous.get("error") or "上次期交所查詢失敗"
         items.append(fut_item(
-            key, name, hist.get(key, []), None, ok, None, now,
-            freshness_error=errors[key],
+            key, name, hist.get(key, []), None, True, None, now,
+            freshness_error=error, attempted=fetch,
+            checked_at=checked_now if fetch else previous.get("checked_at"),
+            previous_error=previous_error,
         ))
     return hist, items
 
+
+def futures_log_line(item: dict[str, Any]) -> str:
+    """GitHub Actions 日誌用：每次都說清楚台指期這一輪有沒有查、結果是什麼。"""
+    name = "台指期近月" if item.get("sym") == "TX" else "台指期夜盤"
+    status, latest, expected = item.get("data_status"), item.get("date"), item.get("expected_date")
+    if not item.get("checked_this_run"):
+        reason = "已是最新" if status == "success" else "沿用上次狀態"
+        return f"[{name}] 本次未查詢（{reason}；資料 {latest}，預期 {expected}；上次查詢 {item.get('checked_at') or '無'}）"
+    if status == "success":
+        return f"[{name}] 已查詢：取得 {latest} 資料 ✓"
+    if status == "failed":
+        return f"[{name}] 查詢失敗：{item.get('fetch_error')}"
+    return f"[{name}] 已查詢：API 正常，最新日期 {latest}，預期 {expected} → {item.get('status_label')}"
 
 
 def analyse(sym: str, name: str, has_vol: bool, override: dict[str, Any] | None = None,
@@ -1039,15 +1108,10 @@ def main(now_utc: dt.datetime | None = None) -> None:
     close_fetch_failed = bool(turnover_due and not close_official_today)
 
     hist0 = previous.get("fut_hist", {})
-    # 期交所每日行情約於日盤收盤後 16:00、夜盤收盤後 07:00 產製；
-    # 14:07 / 06:07 的排程早於資料產製時間，不應以舊回應覆蓋新鮮度狀態。
-    fut_allowed = (
-        (now.weekday() < 5 and now.time() >= dt.time(16, 0))
-        or (now.weekday() <= 5 and dt.time(7, 0) <= now.time() < dt.time(9, 0))
-    )
-    # 日盤與夜盤分別檢查日期；其中一個時段更新成功，不代表另一個時段也已更新。
+    # 期交所資料於下一個交易日早上之後才公布，時間不固定（曾延到下午）。
+    # 不設查詢時段：只要手上資料還沒追上預期日期，每次排程都查一次（一個請求）；追上後就不再查。
     fut_hist, fut_items = update_futures(
-        hist0, manual or fut_allowed, now=now,
+        hist0, manual or futures_fetch_due(hist0, now), now=now,
         previous_items={
             x.get("sym"): x for x in previous.get("items", [])
             if isinstance(x, dict) and x.get("sym") in ("TX", "TXALL")
@@ -1064,8 +1128,15 @@ def main(now_utc: dt.datetime | None = None) -> None:
             "source_date": None, "checked_at": now.strftime("%Y-%m-%d %H:%M"),
         }
 
+    for fi in fut_items:
+        print(futures_log_line(fi))
+        if fi.get("data_status") == "overdue":
+            print(f"::warning title=台指期過久未更新::{fi.get('status_note')}")
+
     items = []
-    success_count = sum(1 for x in fut_items if not x.get("error") and not x.get("stale"))
+    success_count = sum(1 for x in fut_items if x.get("data_status") == "success")
+    waiting_names = [x.get("name") for x in fut_items if x.get("data_status") == "waiting"]
+    fetched_syms: set[str] = {x["sym"] for x in fut_items if x.get("checked_this_run")}
     total = len(SYMBOLS) + len(fut_items)
     fetched_before = False
     for symbol in SYMBOLS:
@@ -1088,6 +1159,7 @@ def main(now_utc: dt.datetime | None = None) -> None:
             if fetched_before:
                 time.sleep(PAUSE)
             fetched_before = True
+            fetched_syms.add(sym)
             try:
                 item = analyse(*symbol, override=turnover if sym == "^TWII" else None,
                                kind=kind, is_open=mkt_open)
@@ -1193,8 +1265,10 @@ def main(now_utc: dt.datetime | None = None) -> None:
     data = {
         "market_analysis": market_analysis,
         "updated": now.strftime("%Y-%m-%d %H:%M"),
-        "update_status": "success" if success_count == total else "partial" if success_count else "failed",
+        # 「尚未公布」不是失敗：官方本來就還沒出資料，不應觸發部分失敗警示。
+        "update_status": "success" if success_count + len(waiting_names) == total else "partial" if success_count else "failed",
         "successful_items": success_count,
+        "waiting_items": len(waiting_names),
         "total_items": total,
         "items": items,
         "foreign": foreign,
@@ -1208,7 +1282,59 @@ def main(now_utc: dt.datetime | None = None) -> None:
     with open(temp_out, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
     os.replace(temp_out, OUT)
-    print(f"完成 {data['updated']}；行情成功 {success_count}/{total}；外資狀態 {foreign_meta.get('status')}")
+    problems = [x.get("name") or x.get("sym") for x in items if x.get("stale") or x.get("error")]
+    detail = "；".join(part for part in (
+        f"等待官方公布：{'、'.join(waiting_names)}" if waiting_names else "",
+        f"失敗或過舊：{'、'.join(problems)}" if problems else "",
+    ) if part)
+    print(f"完成 {data['updated']}；行情成功 {success_count}/{total}"
+          f"{f'（{detail}）' if detail else ''}；外資狀態 {foreign_meta.get('status')}")
+    write_step_summary(items, fetched_syms, data)
+
+
+STATUS_ICON = {"success": "✓", "partial": "✓", "waiting": "⏳", "overdue": "⚠", "failed": "✗", "unavailable": "—"}
+
+
+def step_summary_markdown(items: list[dict[str, Any]], fetched: set[str], data: dict[str, Any]) -> str:
+    """GitHub Actions 執行頁的摘要表；不用展開日誌就能看出每個標的的狀況。"""
+    def cell(value: Any) -> str:
+        return str(value if value not in (None, "") else "").replace("|", "／").replace("\n", " ")[:160]
+
+    lines = [
+        f"### 市場資料更新 {data.get('updated')}（台灣時間）",
+        "",
+        f"行情成功 {data.get('successful_items')}/{data.get('total_items')}"
+        f"，等待官方公布 {data.get('waiting_items', 0)}，整體狀態 `{data.get('update_status')}`",
+        "",
+        "| 標的 | 狀態 | 資料日期 | 本次是否查詢 | 說明 |",
+        "|---|---|---|---|---|",
+    ]
+    for it in items:
+        status = it.get("data_status") or ("failed" if it.get("error") or it.get("stale") else "success")
+        if it.get("sym") in ("TX", "TXALL"):
+            note = it.get("status_note") or ""
+        elif it.get("stale") or it.get("error"):
+            note = it.get("fetch_error") or it.get("error") or ""
+        elif it.get("sym") not in fetched:
+            note = "市場未開盤，沿用上次資料"
+        else:
+            note = ""
+        lines.append("| " + " | ".join(cell(v) for v in (
+            it.get("name") or it.get("sym"), STATUS_ICON.get(status, status), it.get("date") or "—",
+            "是" if it.get("sym") in fetched else "否", note,
+        )) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def write_step_summary(items: list[dict[str, Any]], fetched: set[str], data: dict[str, Any]) -> None:
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(step_summary_markdown(items, fetched, data))
+    except OSError as exc:
+        print(f"寫入 Job Summary 失敗：{exc}")
 
 
 
