@@ -64,7 +64,7 @@
         "momentum20": -20.24,
         "stale": false,
         "source": "Yahoo Finance",
-        "intraday": true,
+        "intraday": false,
         "technical_date": null,
         "ma20": 9732.68,
         "ma60": 11224.44,
@@ -86,7 +86,7 @@
         "momentum20": -5.48,
         "stale": false,
         "source": "Yahoo Finance",
-        "intraday": true,
+        "intraday": false,
         "technical_date": null,
         "ma20": 7401.97,
         "ma60": 7603.44,
@@ -95,11 +95,11 @@
         "crosscheck": null
       }
     ],
-    "includes_intraday": true,
+    "includes_intraday": false,
     "updated": "2026-11-27",
     "method": "三個指數（台灣加權、費城半導體、標普 500）等權平均；收盤低於 MA60 +25、MA20 低於 MA60 +20、RSI14<40 +20、MACD 柱狀體<0 +20、20 日動能<0 +15。至少 2 個有效指數才計分。"
   },
-  "updated": "2026-11-28 04:57",
+  "updated": "2026-11-28 06:58",
   "update_status": "success",
   "successful_items": 10,
   "waiting_items": 0,
@@ -360,8 +360,8 @@
       "contract_note": "2026-11-19 起近月改為 202612 合約；換月前的價格已依 2026-11-18 兩合約價差（+102 點）調整，支撐與走勢圖為連續序列。",
       "price_source": "期交所官方・夜盤",
       "price_time": "2026-11-26",
-      "session": "夜盤時段",
-      "session_class": "open",
+      "session": "最近夜盤收盤",
+      "session_class": "closed",
       "last_success_date": "2026-11-26",
       "data_status": "success",
       "status_label": "最新",
@@ -501,12 +501,12 @@
         "momentum20": -5.48,
         "bars": 251
       },
-      "captured_open": true,
+      "captured_open": false,
       "data_status": "success",
       "last_success_date": "2026-11-27",
-      "checked_at": "2026-11-28 04:57",
-      "session": "盤中",
-      "session_class": "open",
+      "checked_at": "2026-11-28 06:58",
+      "session": "已收盤",
+      "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/quote/%5EGSPC",
         "tv": "https://www.tradingview.com/chart/?symbol=SP%3ASPX"
@@ -634,12 +634,12 @@
         "momentum20": -7.85,
         "bars": 251
       },
-      "captured_open": true,
+      "captured_open": false,
       "data_status": "success",
       "last_success_date": "2026-11-27",
-      "checked_at": "2026-11-28 04:57",
-      "session": "盤中",
-      "session_class": "open",
+      "checked_at": "2026-11-28 06:58",
+      "session": "已收盤",
+      "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/quote/%5EIXIC",
         "tv": "https://www.tradingview.com/chart/?symbol=NASDAQ%3AIXIC"
@@ -767,12 +767,12 @@
         "momentum20": -2.99,
         "bars": 251
       },
-      "captured_open": true,
+      "captured_open": false,
       "data_status": "success",
       "last_success_date": "2026-11-27",
-      "checked_at": "2026-11-28 04:57",
-      "session": "盤中",
-      "session_class": "open",
+      "checked_at": "2026-11-28 06:58",
+      "session": "已收盤",
+      "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/quote/%5EDJI",
         "tv": "https://www.tradingview.com/chart/?symbol=DJ%3ADJI"
@@ -900,12 +900,12 @@
         "momentum20": -20.24,
         "bars": 251
       },
-      "captured_open": true,
+      "captured_open": false,
       "data_status": "success",
       "last_success_date": "2026-11-27",
-      "checked_at": "2026-11-28 04:57",
-      "session": "盤中",
-      "session_class": "open",
+      "checked_at": "2026-11-28 06:58",
+      "session": "已收盤",
+      "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/quote/%5ESOX",
         "tv": "https://www.tradingview.com/chart/?symbol=NASDAQ%3ASOX"
@@ -1033,12 +1033,12 @@
         "momentum20": -9.0,
         "bars": 251
       },
-      "captured_open": true,
+      "captured_open": false,
       "data_status": "success",
       "last_success_date": "2026-11-27",
-      "checked_at": "2026-11-28 04:57",
-      "session": "交易中",
-      "session_class": "open",
+      "checked_at": "2026-11-28 06:58",
+      "session": "休市",
+      "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/quote/GC=F",
         "tv": "https://www.tradingview.com/chart/?symbol=COMEX%3AGC1%21"
@@ -1166,12 +1166,12 @@
         "momentum20": -18.55,
         "bars": 251
       },
-      "captured_open": true,
+      "captured_open": false,
       "data_status": "success",
       "last_success_date": "2026-11-27",
-      "checked_at": "2026-11-28 04:57",
-      "session": "交易中",
-      "session_class": "open",
+      "checked_at": "2026-11-28 06:58",
+      "session": "休市",
+      "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/quote/CL=F",
         "tv": "https://www.tradingview.com/chart/?symbol=NYMEX%3ACL1%21"
@@ -1181,8 +1181,8 @@
       "sym": "TWD=X",
       "name": "美元兌台幣",
       "date": "2026-11-27",
-      "close": 32.97,
-      "chg": -0.64,
+      "close": 32.98,
+      "chg": -0.63,
       "support": 31.42,
       "dist": 5.0,
       "ma60": 32.28,
@@ -1256,7 +1256,7 @@
         32.85,
         32.92,
         33.19,
-        32.97
+        32.98
       ],
       "stale": false,
       "source": "Yahoo Finance",
@@ -1267,28 +1267,28 @@
         "status": "success",
         "daily": {
           "trend": "多頭",
-          "close": 32.97,
+          "close": 32.98,
           "fast_ma": 32.89,
           "slow_ma": 32.28,
           "bars": 260
         },
         "weekly": {
           "trend": "多頭",
-          "close": 32.97,
+          "close": 32.98,
           "fast_ma": 32.39,
           "slow_ma": 32.14,
           "bars": 53
         },
         "monthly": {
           "trend": "多頭",
-          "close": 32.97,
-          "fast_ma": 32.46,
+          "close": 32.98,
+          "fast_ma": 32.47,
           "slow_ma": 32.21,
           "bars": 13
         },
-        "rsi14": 57.2,
+        "rsi14": 57.3,
         "macd": {
-          "line": 0.164,
+          "line": 0.165,
           "signal": 0.181,
           "histogram": -0.017,
           "direction": "偏空"
@@ -1296,15 +1296,15 @@
         "ma20": 32.89,
         "ma60": 32.28,
         "ma120": 32.14,
-        "momentum20": 1.25,
+        "momentum20": 1.27,
         "bars": 260
       },
-      "captured_open": true,
+      "captured_open": false,
       "data_status": "success",
       "last_success_date": "2026-11-27",
-      "checked_at": "2026-11-28 04:57",
-      "session": "交易中",
-      "session_class": "open",
+      "checked_at": "2026-11-28 06:58",
+      "session": "休市",
+      "session_class": "closed",
       "links": {
         "yahoo": "https://tw.stock.yahoo.com/quote/USDTWD=X",
         "tv": "https://www.tradingview.com/chart/?symbol=FX_IDC%3AUSDTWD"
